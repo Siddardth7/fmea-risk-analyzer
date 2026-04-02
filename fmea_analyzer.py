@@ -20,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.rpn_engine import run_pipeline
+from src.visualizer import pareto_chart, risk_heatmap
 
 # ---------------------------------------------------------------------------
 # ANSI color codes for terminal output
@@ -184,6 +185,19 @@ def main() -> None:
         metavar="FILE",
         help="Path to the FMEA input file (.csv or .xlsx)",
     )
+    parser.add_argument(
+        "--charts",
+        action="store_true",
+        default=False,
+        help="Generate Pareto chart and risk heatmap PNG files alongside the report",
+    )
+    parser.add_argument(
+        "--output-dir", "-o",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Directory to save chart PNGs (default: same directory as input file)",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -220,6 +234,24 @@ def main() -> None:
 
     print(f"Analysis complete. {len(df_result)} failure modes ranked by RPN.")
     print()
+
+    # --- Generate charts if requested ---
+    if args.charts:
+        chart_dir = Path(args.output_dir) if args.output_dir else input_path.parent
+        chart_dir.mkdir(parents=True, exist_ok=True)
+
+        pareto_path = chart_dir / (input_path.stem + "_pareto.png")
+        heatmap_path = chart_dir / (input_path.stem + "_heatmap.png")
+
+        try:
+            pareto_chart(df_result, output_path=pareto_path)
+            print(f"  Pareto chart saved  → {pareto_path}")
+            risk_heatmap(df_result, output_path=heatmap_path)
+            print(f"  Risk heatmap saved  → {heatmap_path}")
+            print()
+        except Exception as exc:
+            print(f"[ERROR] Chart generation failed: {exc}", file=sys.stderr)
+            sys.exit(1)
 
 
 if __name__ == "__main__":
