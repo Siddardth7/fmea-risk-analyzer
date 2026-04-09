@@ -10,7 +10,7 @@
 > Upload a CSV or Excel FMEA file, get an instant ranked risk table, interactive charts,  
 > and one-click PDF + Excel exports — all in a browser.
 
-**Live Demo:** [fmea-risk-analyzer.streamlit.app](https://fmea-risk-analyzer.streamlit.app) ← *(update after deploy)*  
+**Live Demo:** [fmea-risk-analyzer.streamlit.app]([https://fmea-risk-analyzer.streamlit.app](https://fmea-risk-analyzer-mhwzcki9sdzfz5d8rbzsdn.streamlit.app/)) ← *(update after deploy)*  
 **Engineering Reference:** AIAG FMEA-4 (4th Ed.) + AIAG/VDA FMEA Handbook (5th Ed., 2019)  
 **Author:** Siddardth | M.S. Aerospace Engineering, UIUC
 
