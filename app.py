@@ -29,6 +29,7 @@ from src.rpn_engine import (
     validate_input,
 )
 from src.plotly_charts import pareto_chart_plotly, risk_heatmap_plotly
+from src.exporter import export_excel, export_pdf
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -217,8 +218,8 @@ def render_table(df_filtered: pd.DataFrame):
     )
 
 
-def render_charts(df_filtered: pd.DataFrame):
-    if df_filtered.empty:
+def render_charts(pareto_fig, heatmap_fig):
+    if pareto_fig is None or heatmap_fig is None:
         st.info("Charts will appear once data matches the current filters.")
         return
 
@@ -226,16 +227,39 @@ def render_charts(df_filtered: pd.DataFrame):
     tab_pareto, tab_heatmap = st.tabs(["Pareto Chart", "Risk Heatmap"])
 
     with tab_pareto:
-        st.plotly_chart(
-            pareto_chart_plotly(df_filtered),
+        st.plotly_chart(pareto_fig, use_container_width=True)
+
+    with tab_heatmap:
+        st.plotly_chart(heatmap_fig, use_container_width=True)
+
+
+def render_export_buttons(df: pd.DataFrame, pareto_fig, heatmap_fig):
+    st.subheader("📥 Export Report")
+    col_xl, col_pdf, _ = st.columns([1, 1, 3])
+
+    with col_xl:
+        xl_bytes = export_excel(df)
+        st.download_button(
+            label="📊 Download Excel",
+            data=xl_bytes,
+            file_name="fmea_analysis.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
 
-    with tab_heatmap:
-        st.plotly_chart(
-            risk_heatmap_plotly(df_filtered),
-            use_container_width=True,
-        )
+    with col_pdf:
+        if pareto_fig is not None and heatmap_fig is not None:
+            pdf_bytes = export_pdf(df, pareto_fig, heatmap_fig)
+            st.download_button(
+                label="📄 Download PDF",
+                data=pdf_bytes,
+                file_name="fmea_report.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        else:
+            st.button("📄 Download PDF", disabled=True, use_container_width=True,
+                      help="PDF requires at least one row in the filtered table")
 
 
 def render_critical_panel(df_filtered: pd.DataFrame):
@@ -323,6 +347,20 @@ def main():
     # --- Apply filters ---
     df_filtered = _apply_filters(df_analyzed, rpn_min, sev9_only)
 
+    # --- Build charts once; cache in session_state keyed to filter state ---
+    _cache_key = (rpn_min, sev9_only, len(df_filtered))
+    if st.session_state.get("_chart_cache_key") != _cache_key or "pareto_fig" not in st.session_state:
+        if not df_filtered.empty:
+            st.session_state["pareto_fig"]  = pareto_chart_plotly(df_filtered)
+            st.session_state["heatmap_fig"] = risk_heatmap_plotly(df_filtered)
+        else:
+            st.session_state["pareto_fig"]  = None
+            st.session_state["heatmap_fig"] = None
+        st.session_state["_chart_cache_key"] = _cache_key
+
+    pareto_fig  = st.session_state.get("pareto_fig")
+    heatmap_fig = st.session_state.get("heatmap_fig")
+
     # --- Render UI ---
     render_metric_badges(df_filtered, df_analyzed)
     st.divider()
@@ -333,10 +371,12 @@ def main():
         render_table(df_filtered)
 
     with right_col:
-        render_charts(df_filtered)
+        render_charts(pareto_fig, heatmap_fig)
 
     st.divider()
     render_critical_panel(df_filtered)
+    st.divider()
+    render_export_buttons(df_filtered, pareto_fig, heatmap_fig)
 
 
 if __name__ == "__main__":
