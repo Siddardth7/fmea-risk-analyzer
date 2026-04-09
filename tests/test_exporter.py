@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 import openpyxl
 
-from src.exporter import export_excel
+from src.exporter import export_excel, export_pdf
 
 
 def _sample_df() -> pd.DataFrame:
@@ -80,3 +80,42 @@ class TestExportExcel:
         wb = openpyxl.load_workbook(io.BytesIO(result))
         ws = wb["Metadata"]
         assert ws.max_row >= 3
+
+
+# ---------------------------------------------------------------------------
+# PDF tests
+# ---------------------------------------------------------------------------
+
+import plotly.graph_objects as go
+
+
+def _sample_figures():
+    """Minimal Plotly figures for PDF embedding tests."""
+    pareto  = go.Figure(go.Bar(x=["FM-1", "FM-2", "FM-3"], y=[108, 120, 12]))
+    heatmap = go.Figure(go.Heatmap(z=[[1, 2], [3, 4]]))
+    return pareto, heatmap
+
+
+class TestExportPdf:
+
+    def test_returns_bytes(self):
+        pareto, heatmap = _sample_figures()
+        result = export_pdf(_sample_df(), pareto, heatmap)
+        assert isinstance(result, bytes)
+
+    def test_bytes_non_empty(self):
+        pareto, heatmap = _sample_figures()
+        result = export_pdf(_sample_df(), pareto, heatmap)
+        assert len(result) > 5000  # a real PDF is never this small
+
+    def test_pdf_magic_bytes(self):
+        """PDF files always start with %PDF."""
+        pareto, heatmap = _sample_figures()
+        result = export_pdf(_sample_df(), pareto, heatmap)
+        assert result[:4] == b"%PDF"
+
+    def test_single_row_does_not_raise(self):
+        pareto, heatmap = _sample_figures()
+        single = _sample_df().head(1)
+        result = export_pdf(single, pareto, heatmap)
+        assert isinstance(result, bytes)

@@ -206,9 +206,9 @@ def export_pdf(
     pdf.set_margins(10, 10, 10)
 
     _pdf_page1(pdf, df)
-    _pdf_chart_page(pdf, pareto_fig,  "Pareto Chart — Failure Modes Ranked by RPN",
+    _pdf_chart_page(pdf, pareto_fig,  "Pareto Chart - Failure Modes Ranked by RPN",
                     width=1400, height=700)
-    _pdf_chart_page(pdf, heatmap_fig, "Risk Heatmap — Severity x Occurrence",
+    _pdf_chart_page(pdf, heatmap_fig, "Risk Heatmap - Severity x Occurrence",
                     width=900,  height=700)
 
     return bytes(pdf.output())
@@ -233,7 +233,7 @@ def _pdf_page1(pdf: Any, df: pd.DataFrame) -> None:
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_fill_color(44, 62, 80)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 10, "FMEA Risk Analysis Report",
+    pdf.cell(0, 10, "FMEA Risk Analysis Report",  # ASCII-safe title
              new_x="LMARGIN", new_y="NEXT", align="C", fill=True)
     pdf.ln(2)
 
