@@ -189,7 +189,7 @@ def pareto_chart_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
         paper_bgcolor=t["paper"],
         font=dict(color=t["text"]),
         margin=dict(l=60, r=80, t=80, b=160),
-        hoverlabel=dict(bgcolor=t["bg"], font_color=t["text"]),
+        hoverlabel=dict(bgcolor=t["bg"], font=dict(color=t["text"])),
     )
 
     return fig
@@ -323,7 +323,7 @@ def risk_heatmap_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
         paper_bgcolor=t["paper"],
         font=dict(color=t["text"]),
         margin=dict(l=60, r=40, t=80, b=60),
-        hoverlabel=dict(bgcolor=t["bg"], font_color=t["text"]),
+        hoverlabel=dict(bgcolor=t["bg"], font=dict(color=t["text"])),
     )
 
     return fig
