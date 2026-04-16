@@ -65,25 +65,32 @@ def pareto_chart_plotly(df: pd.DataFrame) -> go.Figure:
 
     fig = go.Figure()
 
-    # --- Bars (left y-axis) ---
+    # --- Single Bar trace with per-bar colors (works across all Plotly 5/6 versions) ---
+    hover_texts = [
+        f"<b>{labels[i]}</b><br>RPN: {int(rpns[i])}<br>Tier: {tiers[i]}"
+        for i in range(len(labels))
+    ]
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=rpns,
+        marker_color=bar_colors,
+        yaxis="y1",
+        text=[str(int(r)) for r in rpns],
+        textposition="outside",
+        hovertext=hover_texts,
+        hoverinfo="text",
+        showlegend=False,
+        name="RPN",
+    ))
+
+    # --- Invisible scatter traces for the legend (one per tier) ---
     for tier_name, tier_color in TIER_COLORS.items():
-        mask = tiers == tier_name
-        if not mask.any():
-            continue
-        indices = [i for i, m in enumerate(mask) if m]
-        fig.add_trace(go.Bar(
-            x=[labels[i] for i in indices],
-            y=[rpns[i] for i in indices],
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode="markers",
+            marker=dict(size=10, color=tier_color, symbol="square"),
             name=TIER_LABELS[tier_name],
-            marker_color=tier_color,
             yaxis="y1",
-            text=[str(int(rpns[i])) for i in indices],
-            textposition="outside",
-            hovertemplate=(
-                "<b>%{x}</b><br>"
-                "RPN: %{y}<br>"
-                f"Tier: {tier_name}<extra></extra>"
-            ),
         ))
 
     # --- Cumulative % line (right y-axis) ---
@@ -98,12 +105,16 @@ def pareto_chart_plotly(df: pd.DataFrame) -> go.Figure:
         hovertemplate="<b>%{x}</b><br>Cumulative: %{y:.1f}%<extra></extra>",
     ))
 
-    # --- 80% reference line ---
-    fig.add_hline(
-        y=80, line_dash="dash", line_color="#7f8c8d",
-        annotation_text="80%", annotation_position="right",
-        yref="y2",
-    )
+    # --- 80% reference line drawn as a Scatter on y2 (avoids add_hline yref issues) ---
+    fig.add_trace(go.Scatter(
+        x=[labels[0], labels[-1]] if len(labels) > 0 else [],
+        y=[80, 80],
+        mode="lines",
+        yaxis="y2",
+        line=dict(color="#7f8c8d", dash="dash", width=1.2),
+        name="80% threshold",
+        hoverinfo="skip",
+    ))
 
     fig.update_layout(
         title=dict(
@@ -111,22 +122,20 @@ def pareto_chart_plotly(df: pd.DataFrame) -> go.Figure:
             font=dict(size=15, color="#2c3e50"),
         ),
         xaxis=dict(
-            title="Failure Mode",
+            title=dict(text="Failure Mode"),
             tickangle=-45,
             tickfont=dict(size=9),
         ),
         yaxis=dict(
-            title="RPN",
-            titlefont=dict(color="#2c3e50"),
+            title=dict(text="RPN", font=dict(color="#2c3e50")),
         ),
         yaxis2=dict(
-            title="Cumulative RPN (%)",
+            title=dict(text="Cumulative RPN (%)", font=dict(color="#2c3e50")),
             overlaying="y",
             side="right",
             range=[0, 110],
-            titlefont=dict(color="#2c3e50"),
         ),
-        barmode="stack",
+        barmode="relative",
         legend=dict(
             orientation="h",
             yanchor="bottom",
