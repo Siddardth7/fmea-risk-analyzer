@@ -218,6 +218,35 @@ def export_pdf(
 # PDF helpers
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Unicode sanitizer — fpdf2 core fonts only support Latin-1
+# ---------------------------------------------------------------------------
+
+_UNICODE_MAP = [
+    ("\u2014", "-"),    # em dash  —
+    ("\u2013", "-"),    # en dash  –
+    ("\u00d7", "x"),    # multiplication sign  ×
+    ("\u2265", ">="),   # ≥
+    ("\u2264", "<="),   # ≤
+    ("\u00b1", "+/-"),  # ±
+    ("\u00b0", " deg"), # °
+    ("\u2018", "'"),    # left single quote
+    ("\u2019", "'"),    # right single quote
+    ("\u201c", '"'),    # left double quote
+    ("\u201d", '"'),    # right double quote
+    ("\u2022", "*"),    # bullet
+    ("\u00e9", "e"),    # é
+    ("\u00e0", "a"),    # à
+]
+
+def _safe_text(s: object) -> str:
+    """Sanitize string to Latin-1 safe for fpdf2 core fonts."""
+    text = str(s)
+    for char, rep in _UNICODE_MAP:
+        text = text.replace(char, rep)
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
 def _flag_str(row: pd.Series) -> str:
     parts = []
     if row.get("Flag_High_RPN"):          parts.append("High RPN")
@@ -292,15 +321,15 @@ def _pdf_page1(pdf: Any, df: pd.DataFrame) -> None:
         pdf.set_text_color(40, 40, 40)
 
         values = [
-            str(int(row["ID"]))         if "ID"           in row.index else "",
-            str(row.get("Process_Step", ""))[:22],
-            str(row.get("Failure_Mode", ""))[:32],
-            str(int(row["Severity"]))   if "Severity"     in row.index else "",
-            str(int(row["Occurrence"])) if "Occurrence"   in row.index else "",
-            str(int(row["Detection"]))  if "Detection"    in row.index else "",
-            str(int(row["RPN"]))        if "RPN"          in row.index else "",
-            tier,
-            str(row.get("_flags", "-"))[:38],
+            str(int(row["ID"]))              if "ID"         in row.index else "",
+            _safe_text(str(row.get("Process_Step", ""))[:22]),
+            _safe_text(str(row.get("Failure_Mode", ""))[:32]),
+            str(int(row["Severity"]))        if "Severity"   in row.index else "",
+            str(int(row["Occurrence"]))      if "Occurrence" in row.index else "",
+            str(int(row["Detection"]))       if "Detection"  in row.index else "",
+            str(int(row["RPN"]))             if "RPN"        in row.index else "",
+            _safe_text(tier),
+            _safe_text(str(row.get("_flags", "-"))[:38]),
         ]
         for (_, col_w), val in zip(_PDF_TABLE_COLS, values):
             pdf.cell(col_w, 6, val, border=1,
@@ -323,7 +352,7 @@ def _pdf_chart_page(
     pdf.set_font("Helvetica", "B", 13)
     pdf.set_fill_color(44, 62, 80)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 9, title, new_x="LMARGIN", new_y="NEXT", align="C", fill=True)
+    pdf.cell(0, 9, _safe_text(title), new_x="LMARGIN", new_y="NEXT", align="C", fill=True)
     pdf.ln(4)
 
     png_bytes = pio.to_image(fig, format="png", width=width, height=height, scale=2)
