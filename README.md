@@ -316,6 +316,7 @@ fmea-risk-analyzer/
 │   └── fmea_input_template.csv         # Blank template for creating your own FMEA
 │
 ├── docs/
+│   ├── FMEA_COMPLETE_GUIDE.md          # End-to-end knowledge & teaching guide (start here)
 │   ├── FMEA_methodology_notes.md       # In-depth engineering methodology write-up
 │   ├── ASSUMPTIONS_LOG.md              # Every threshold decision with AIAG source citations
 │   ├── FMEA_input_schema.md            # Full column specification and validation rules
@@ -416,3 +417,5 @@ Every threshold decision (RPN > 100, Severity ≥ 9, Action Priority H threshold
 5. `docs/ASSUMPTIONS_LOG.md` — Project-specific engineering decision log with source citations for every threshold value used in `src/rpn_engine.py`.
 
 6. `docs/FMEA_methodology_notes.md` — Detailed methodology notes written alongside this project: RPN formula derivation, AIAG Action Priority logic, Pareto 80/20 application to FMEA.
+
+7. `docs/FMEA_COMPLETE_GUIDE.md` — End-to-end knowledge and teaching guide: fundamentals, architecture, feature walkthrough, user guide, real-world applications, FAQ, and presentation talking points.
