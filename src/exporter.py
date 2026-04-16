@@ -199,17 +199,27 @@ def export_pdf(
         Raw .pdf bytes suitable for st.download_button().
     """
     from fpdf import FPDF
-    import plotly.io as pio
+    from src.visualizer import pareto_chart as mpl_pareto, risk_heatmap as mpl_heatmap
+    import matplotlib.pyplot as plt
 
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=12)
     pdf.set_margins(10, 10, 10)
 
     _pdf_page1(pdf, df)
-    _pdf_chart_page(pdf, pareto_fig,  "Pareto Chart - Failure Modes Ranked by RPN",
-                    width=1400, height=700)
-    _pdf_chart_page(pdf, heatmap_fig, "Risk Heatmap - Severity x Occurrence",
-                    width=900,  height=700)
+
+    # Use matplotlib (no Chrome/kaleido needed on Streamlit Cloud)
+    for chart_fn, title in [
+        (lambda: mpl_pareto(df),   "Pareto Chart - Failure Modes Ranked by RPN"),
+        (lambda: mpl_heatmap(df),  "Risk Heatmap - Severity x Occurrence"),
+    ]:
+        fig = chart_fn()
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            fig.savefig(tmp.name, dpi=150, bbox_inches="tight")
+            tmp_path = tmp.name
+        plt.close(fig)
+        _pdf_chart_page_from_file(pdf, tmp_path, title)
+        os.unlink(tmp_path)
 
     return bytes(pdf.output())
 
@@ -337,16 +347,8 @@ def _pdf_page1(pdf: Any, df: pd.DataFrame) -> None:
         pdf.ln()
 
 
-def _pdf_chart_page(
-    pdf: Any,
-    fig: Any,
-    title: str,
-    width: int = 1200,
-    height: int = 700,
-) -> None:
-    """Render a Plotly figure to PNG and embed on a new PDF page."""
-    import plotly.io as pio
-
+def _pdf_chart_page_from_file(pdf: Any, png_path: str, title: str) -> None:
+    """Embed a pre-rendered PNG file as a new PDF page."""
     pdf.add_page()
 
     pdf.set_font("Helvetica", "B", 13)
@@ -355,12 +357,4 @@ def _pdf_chart_page(
     pdf.cell(0, 9, _safe_text(title), new_x="LMARGIN", new_y="NEXT", align="C", fill=True)
     pdf.ln(4)
 
-    png_bytes = pio.to_image(fig, format="png", width=width, height=height, scale=2)
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-        tmp.write(png_bytes)
-        tmp_path = tmp.name
-
-    try:
-        pdf.image(tmp_path, x=10, w=277)
-    finally:
-        os.unlink(tmp_path)
+    pdf.image(png_path, x=10, w=277)
