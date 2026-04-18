@@ -549,15 +549,10 @@ def render_process_filter(df: pd.DataFrame) -> list:
 # ---------------------------------------------------------------------------
 
 def render_header(dark: bool) -> None:
-    tok = _tok(dark)
     st.title("FMEA Risk Prioritization Tool")
-    st.markdown(
-        f'<p style="font-size:14px;color:{tok["text_sec"]};margin-top:-8px;margin-bottom:12px;">'
-        "Analyze failure modes, calculate <strong>RPN scores</strong>, apply "
-        "<strong>AIAG FMEA-4</strong> criticality flags, and visualize risk concentration "
-        "across your manufacturing process."
-        "</p>",
-        unsafe_allow_html=True,
+    st.caption(
+        "Analyze failure modes, calculate RPN scores, apply AIAG FMEA-4 criticality flags, "
+        "and visualize risk concentration across your manufacturing process."
     )
 
 
@@ -585,25 +580,14 @@ def render_metric_badges(df: pd.DataFrame, dark: bool) -> None:
         ("ACTION PRIO H",  action_h, tok["amber"],   "RPN ≥ 200 or Sev ≥ 9"),
     ]
 
-    cards_html = (
-        f'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin:4px 0 16px;">'
-    )
-    for label, value, color, sub in metrics:
-        sub_html = (
-            f'<div style="font-size:10px;color:{tok["text_muted"]};margin-top:3px;">{sub}</div>'
-            if sub else ""
+    shadow = "0.12" if dark else "0.05"
+    cols = st.columns(7)
+    for col, (label, value, color, sub) in zip(cols, metrics):
+        sub_part = f'<span style="display:block;font-size:10px;color:{tok["text_muted"]};margin-top:3px;">{sub}</span>' if sub else ""
+        col.markdown(
+            f'<div style="background:{tok["card_bg"]};border:1px solid {tok["border"]};border-radius:8px;padding:14px 16px 12px;border-top:3px solid {color};box-shadow:0 1px 3px rgba(0,0,0,{shadow});"><span style="display:block;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:{tok["text_sec"]};margin-bottom:6px;">{label}</span><span style="display:block;font-size:28px;font-weight:700;color:{tok["text_pri"]};line-height:1.1;">{value}</span>{sub_part}</div>',
+            unsafe_allow_html=True,
         )
-        cards_html += f"""
-        <div style="background:{tok['card_bg']};border:1px solid {tok['border']};border-radius:8px;
-                    padding:14px 16px 12px;border-top:3px solid {color};
-                    box-shadow:0 1px 3px rgba(0,0,0,{'0.12' if dark else '0.05'});">
-            <div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
-                       color:{tok['text_sec']};margin-bottom:6px;">{label}</div>
-            <div style="font-size:28px;font-weight:700;color:{tok['text_pri']};line-height:1.1;">{value}</div>
-            {sub_html}
-        </div>"""
-    cards_html += "</div>"
-    st.markdown(cards_html, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -636,14 +620,7 @@ def render_insights(df: pd.DataFrame, dark: bool) -> None:
             f"<strong>{sev9_count}</strong> safety-critical failure mode(s) flagged (Severity ≥ 9)."
         )
 
-    st.markdown(
-        f"""<div style="background:{tok['info_bg']};border-left:4px solid {tok['info_border']};
-                        border-radius:0 6px 6px 0;padding:12px 16px;margin:4px 0 16px;
-                        font-size:13px;color:{tok['text_pri']};line-height:1.6;">
-            {"  &nbsp;·&nbsp;  ".join(parts)}
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    st.info("  ·  ".join(parts))
 
 
 # ---------------------------------------------------------------------------
@@ -679,52 +656,22 @@ def render_table(df: pd.DataFrame, dark: bool) -> None:
         def pct(n):
             return n / total * 100 if total else 0
 
-        dist_html = f"""
-        <div style="background:{tok['card_bg']};border:1px solid {tok['border']};
-                    border-radius:8px;padding:16px;font-size:13px;">
-            <div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
-                       color:{tok['text_sec']};margin-bottom:14px;">Risk Distribution</div>
-        """
+        html = f'<div style="background:{tok["card_bg"]};border:1px solid {tok["border"]};border-radius:8px;padding:16px;font-size:13px;">'
+        html += f'<div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:{tok["text_sec"]};margin-bottom:14px;">Risk Distribution</div>'
         for label, count, color in [
-            ("Critical", red, tok["red"]),
-            ("Warning",  yellow, tok["amber"]),
-            ("Acceptable", green, tok["green"]),
+            ("Critical",   red,    tok["red"]),
+            ("Warning",    yellow, tok["amber"]),
+            ("Acceptable", green,  tok["green"]),
         ]:
             w = pct(count)
-            dist_html += f"""
-            <div style="margin-bottom:12px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                    <span style="font-size:12px;font-weight:500;color:{tok['text_pri']};">{label}</span>
-                    <span style="font-size:12px;color:{tok['text_sec']};">{count} ({w:.0f}%)</span>
-                </div>
-                <div style="background:{tok['progress_bg']};border-radius:4px;height:5px;">
-                    <div style="background:{color};width:{w:.1f}%;height:5px;border-radius:4px;
-                               transition:width 0.3s ease;"></div>
-                </div>
-            </div>"""
-
+            html += f'<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:500;color:{tok["text_pri"]};">{label}</span><span style="font-size:12px;color:{tok["text_sec"]};">{count} ({w:.0f}%)</span></div><div style="background:{tok["progress_bg"]};border-radius:4px;height:5px;"><div style="background:{color};width:{w:.1f}%;height:5px;border-radius:4px;"></div></div></div>'
         if total:
             avg_rpn   = df["RPN"].mean()
             max_rpn   = df["RPN"].max()
             total_rpn = df["RPN"].sum()
-            dist_html += f"""
-            <div style="border-top:1px solid {tok['border']};margin-top:14px;padding-top:14px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                    <span style="font-size:11px;color:{tok['text_sec']};">Avg RPN</span>
-                    <span style="font-size:11px;font-weight:600;color:{tok['text_pri']};">{avg_rpn:.0f}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                    <span style="font-size:11px;color:{tok['text_sec']};">Max RPN</span>
-                    <span style="font-size:11px;font-weight:600;color:{tok['text_pri']};">{int(max_rpn)}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="font-size:11px;color:{tok['text_sec']};">Total RPN</span>
-                    <span style="font-size:11px;font-weight:600;color:{tok['text_pri']};">{int(total_rpn)}</span>
-                </div>
-            </div>"""
-
-        dist_html += "</div>"
-        st.markdown(dist_html, unsafe_allow_html=True)
+            html += f'<div style="border-top:1px solid {tok["border"]};margin-top:14px;padding-top:14px;"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:11px;color:{tok["text_sec"]};">Avg RPN</span><span style="font-size:11px;font-weight:600;color:{tok["text_pri"]};">{avg_rpn:.0f}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:11px;color:{tok["text_sec"]};">Max RPN</span><span style="font-size:11px;font-weight:600;color:{tok["text_pri"]};">{int(max_rpn)}</span></div><div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:{tok["text_sec"]};">Total RPN</span><span style="font-size:11px;font-weight:600;color:{tok["text_pri"]};">{int(total_rpn)}</span></div></div>'
+        html += "</div>"
+        st.markdown(html, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -732,15 +679,10 @@ def render_table(df: pd.DataFrame, dark: bool) -> None:
 # ---------------------------------------------------------------------------
 
 def render_pareto(pareto_fig, dark: bool) -> None:
-    tok = _tok(dark)
     st.subheader("Pareto Chart — Failure Modes Ranked by RPN")
-    st.markdown(
-        f'<p style="font-size:13px;color:{tok["text_sec"]};margin-top:-4px;">'
-        "Bars sorted highest to lowest RPN. The <strong>cumulative % line</strong> shows where 80% "
-        "of total risk is concentrated. Focus corrective action resources on failure modes to the "
-        "<strong>left</strong> of the 80% threshold."
-        "</p>",
-        unsafe_allow_html=True,
+    st.caption(
+        "Bars sorted highest to lowest RPN. The cumulative % line shows where 80% of total risk "
+        "is concentrated. Focus corrective action on failure modes to the left of the 80% threshold."
     )
     if pareto_fig is None:
         st.info("No data to display under current filters.")
@@ -753,15 +695,11 @@ def render_pareto(pareto_fig, dark: bool) -> None:
 # ---------------------------------------------------------------------------
 
 def render_heatmap(heatmap_fig, dark: bool) -> None:
-    tok = _tok(dark)
     st.subheader("Risk Heatmap — Severity × Occurrence")
-    st.markdown(
-        f'<p style="font-size:13px;color:{tok["text_sec"]};margin-top:-4px;">'
-        "Each cell shows the <strong>count of failure modes</strong> with that Severity × Occurrence "
-        "combination. Color reflects the worst Risk Tier in the cell. Clustering in the "
-        "<strong>top-right</strong> corner (high S, high O) indicates systemic process problems."
-        "</p>",
-        unsafe_allow_html=True,
+    st.caption(
+        "Each cell shows the count of failure modes with that Severity × Occurrence combination. "
+        "Color reflects the worst Risk Tier in the cell. Clustering in the top-right corner "
+        "(high S, high O) indicates systemic process problems."
     )
     if heatmap_fig is None:
         st.info("No data to display under current filters.")
@@ -819,22 +757,8 @@ def render_export_buttons(
     author_name: str,
     dark: bool,
 ) -> None:
-    tok = _tok(dark)
-
-    # Section header
-    st.markdown(
-        f"""<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-            <div style="width:3px;height:22px;background:{tok['primary']};border-radius:2px;"></div>
-            <span style="font-size:16px;font-weight:600;color:{tok['text_pri']};">Export Report</span>
-        </div>""",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        f'<p style="font-size:12px;color:{tok["text_sec"]};margin-top:-8px;margin-bottom:12px;">'
-        "Download your analysis as a professional PDF report, an Excel engineering workbook, or raw CSV."
-        "</p>",
-        unsafe_allow_html=True,
-    )
+    st.subheader("Export Report")
+    st.caption("Download your analysis as a professional PDF report, an Excel engineering workbook, or raw CSV.")
 
     col_xl, col_pdf, col_csv, _ = st.columns([1, 1, 1, 3])
 
@@ -935,37 +859,19 @@ Each factor is scored 1–10 per AIAG FMEA-4:
 
     # How it works section
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        f"""<div style="background:{tok['card_bg']};border:1px solid {tok['border']};
-                        border-radius:8px;padding:24px 28px;margin-top:8px;">
-            <div style="font-size:14px;font-weight:600;color:{tok['text_pri']};margin-bottom:16px;">
-                How it works
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
-                <div style="text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:{tok['primary']};margin-bottom:4px;">01</div>
-                    <div style="font-size:13px;font-weight:600;color:{tok['text_pri']};margin-bottom:4px;">Upload</div>
-                    <div style="font-size:12px;color:{tok['text_sec']};">Import CSV or Excel FMEA worksheet</div>
-                </div>
-                <div style="text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:{tok['primary']};margin-bottom:4px;">02</div>
-                    <div style="font-size:13px;font-weight:600;color:{tok['text_pri']};margin-bottom:4px;">Analyze</div>
-                    <div style="font-size:12px;color:{tok['text_sec']};">RPN calculated + AIAG flags applied</div>
-                </div>
-                <div style="text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:{tok['primary']};margin-bottom:4px;">03</div>
-                    <div style="font-size:13px;font-weight:600;color:{tok['text_pri']};margin-bottom:4px;">Visualize</div>
-                    <div style="font-size:12px;color:{tok['text_sec']};">Pareto chart, heatmap, ranked table</div>
-                </div>
-                <div style="text-align:center;">
-                    <div style="font-size:22px;font-weight:700;color:{tok['primary']};margin-bottom:4px;">04</div>
-                    <div style="font-size:13px;font-weight:600;color:{tok['text_pri']};margin-bottom:4px;">Export</div>
-                    <div style="font-size:12px;color:{tok['text_sec']};">PDF report or Excel workbook</div>
-                </div>
-            </div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    st.markdown("**How it works**")
+    tok = _tok(dark)
+    how_cols = st.columns(4)
+    for col, (num, title, desc) in zip(how_cols, [
+        ("01", "Upload",    "Import CSV or Excel FMEA worksheet"),
+        ("02", "Analyze",   "RPN calculated + AIAG flags applied"),
+        ("03", "Visualize", "Pareto chart, heatmap, ranked table"),
+        ("04", "Export",    "PDF report or Excel workbook"),
+    ]):
+        col.markdown(
+            f'<div style="text-align:center;padding:20px 12px;background:{tok["card_bg"]};border:1px solid {tok["border"]};border-radius:8px;"><div style="font-size:22px;font-weight:700;color:{tok["primary"]};margin-bottom:4px;">{num}</div><div style="font-size:13px;font-weight:600;color:{tok["text_pri"]};margin-bottom:4px;">{title}</div><div style="font-size:12px;color:{tok["text_sec"]};">{desc}</div></div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ---------------------------------------------------------------------------
