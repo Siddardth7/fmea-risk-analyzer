@@ -102,14 +102,15 @@ _FONT_CSS = """
 _BASE_CSS = """
 <style>
 /* ===== TYPOGRAPHY ===== */
-/* Apply Inter to text-bearing elements only — NOT to * which breaks Streamlit icon fonts */
+/* Apply Inter to named text elements only — exclude span/div to preserve
+   Streamlit's icon font (icon glyphs live on <span> pseudo-elements) */
 .stApp {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
-.stApp p, .stApp span, .stApp div, .stApp a, .stApp li,
-.stApp td, .stApp th, .stApp input, .stApp textarea, .stApp select,
-.stApp label, .stApp small, .stApp button, .stApp h1, .stApp h2,
-.stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+.stApp p, .stApp label, .stApp button, .stApp a,
+.stApp input, .stApp textarea, .stApp select,
+.stApp td, .stApp th, .stApp li, .stApp small {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
