@@ -7,7 +7,6 @@ Functions:
     risk_heatmap_plotly(df, dark)   — Interactive Severity × Occurrence heatmap
 
 Both functions return a plotly.graph_objects.Figure ready for st.plotly_chart().
-They accept the same analyzed DataFrame as visualizer.py (output of run_pipeline).
 
 Author: Siddardth | M.S. Aerospace Engineering, UIUC
 """
@@ -19,13 +18,13 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # ---------------------------------------------------------------------------
-# Color palette — aligned with Risk_Tier thresholds in rpn_engine.py
+# Professional color palette — calibrated for clarity, not saturation
 # ---------------------------------------------------------------------------
 
 TIER_COLORS = {
-    "Red":    "#e74c3c",
-    "Yellow": "#f39c12",
-    "Green":  "#27ae60",
+    "Red":    "#DC2626",   # professional red (not garish coral)
+    "Yellow": "#D97706",   # warm amber (not orange)
+    "Green":  "#16A34A",   # clean green
 }
 
 TIER_LABELS = {
@@ -41,20 +40,24 @@ TIER_LABELS = {
 def _theme(dark: bool) -> dict:
     if dark:
         return dict(
-            bg="#1a1f2e",
-            paper="#0e1117",
-            text="#c9d1d9",
-            grid="#30363d",
-            line="#58a6ff",
-            ref_line="#8b949e",
+            bg="#161B22",
+            paper="#0D1117",
+            text="#C9D1D9",
+            text_muted="#6E7681",
+            grid="#21262D",
+            line="#58A6FF",
+            ref_line="#6E7681",
+            axis_line="#30363D",
         )
     return dict(
-        bg="white",
-        paper="white",
-        text="#2c3e50",
-        grid="#e8ecef",
-        line="#2c3e50",
-        ref_line="#7f8c8d",
+        bg="#FFFFFF",
+        paper="#FFFFFF",
+        text="#1E293B",
+        text_muted="#94A3B8",
+        grid="#F1F5F9",
+        line="#2563EB",
+        ref_line="#94A3B8",
+        axis_line="#E2E8F0",
     )
 
 
@@ -64,38 +67,28 @@ def _theme(dark: bool) -> dict:
 
 def pareto_chart_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
     """
-    Generate an interactive Plotly Pareto chart for use in Streamlit.
+    Interactive Plotly Pareto chart.
 
     Combines a descending bar chart (colored by Risk_Tier) with a
     cumulative RPN % line and an 80% reference line.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Analyzed FMEA DataFrame — output of run_pipeline() or rank_by_rpn().
-        Must contain columns: Failure_Mode, RPN, Risk_Tier.
-    dark : bool
-        If True, render with dark background theme.
-
-    Returns
-    -------
-    plotly.graph_objects.Figure
     """
     t = _theme(dark)
 
-    df_sorted = df.sort_values("RPN", ascending=False).reset_index(drop=True)
-
-    labels         = [str(fm)[:40] for fm in df_sorted["Failure_Mode"]]
-    rpns           = df_sorted["RPN"].values.astype(float)
-    tiers          = df_sorted["Risk_Tier"].values
-    bar_colors     = [TIER_COLORS.get(t_name, "#95a5a6") for t_name in tiers]
-    cumulative_pct = np.cumsum(rpns) / rpns.sum() * 100 if rpns.sum() > 0 else rpns * 0
+    df_sorted  = df.sort_values("RPN", ascending=False).reset_index(drop=True)
+    labels     = [str(fm)[:40] for fm in df_sorted["Failure_Mode"]]
+    rpns       = df_sorted["RPN"].values.astype(float)
+    tiers      = df_sorted["Risk_Tier"].values
+    bar_colors = [TIER_COLORS.get(tier, "#94A3B8") for tier in tiers]
+    cum_pct    = np.cumsum(rpns) / rpns.sum() * 100 if rpns.sum() > 0 else rpns * 0
 
     fig = go.Figure()
 
-    # --- Single Bar trace with per-bar colors ---
+    # Bar trace
     hover_texts = [
-        f"<b>{labels[i]}</b><br>RPN: {int(rpns[i])}<br>Tier: {tiers[i]}"
+        f"<b>{labels[i]}</b><br>"
+        f"RPN: <b>{int(rpns[i])}</b><br>"
+        f"Risk Tier: {tiers[i]}<br>"
+        f"Rank: #{i+1} of {len(labels)}"
         for i in range(len(labels))
     ]
     fig.add_trace(go.Bar(
@@ -103,17 +96,18 @@ def pareto_chart_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
         y=rpns,
         marker_color=bar_colors,
         marker_line_width=0,
+        marker_opacity=0.9,
         yaxis="y1",
         text=[str(int(r)) for r in rpns],
         textposition="outside",
-        textfont=dict(size=9, color=t["text"]),
+        textfont=dict(size=9, color=t["text_muted"], family="Inter, sans-serif"),
         hovertext=hover_texts,
         hoverinfo="text",
         showlegend=False,
         name="RPN",
     ))
 
-    # --- Invisible scatter traces for tier legend ---
+    # Invisible legend markers for tiers
     for tier_name, tier_color in TIER_COLORS.items():
         fig.add_trace(go.Scatter(
             x=[None], y=[None],
@@ -123,56 +117,64 @@ def pareto_chart_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
             yaxis="y1",
         ))
 
-    # --- Cumulative % line (right y-axis) ---
+    # Cumulative % line
     fig.add_trace(go.Scatter(
         x=labels,
-        y=cumulative_pct,
+        y=cum_pct,
         mode="lines+markers",
         name="Cumulative RPN %",
         yaxis="y2",
-        line=dict(color=t["line"], width=2.5),
-        marker=dict(size=5, color=t["line"]),
+        line=dict(color=t["line"], width=2),
+        marker=dict(size=4, color=t["line"]),
         hovertemplate="<b>%{x}</b><br>Cumulative: %{y:.1f}%<extra></extra>",
     ))
 
-    # --- 80% reference line as a Scatter on y2 ---
+    # 80% reference line
     if len(labels) > 0:
         fig.add_trace(go.Scatter(
             x=[labels[0], labels[-1]],
             y=[80, 80],
             mode="lines",
             yaxis="y2",
-            line=dict(color=t["ref_line"], dash="dash", width=1.5),
+            line=dict(color=t["ref_line"], dash="dot", width=1.2),
             name="80% threshold",
             hoverinfo="skip",
         ))
 
     fig.update_layout(
         title=dict(
-            text="FMEA Pareto Chart — Failure Modes Ranked by RPN",
-            font=dict(size=16, color=t["text"]),
+            text="Failure Modes Ranked by RPN — Pareto Analysis",
+            font=dict(size=15, color=t["text"], family="Inter, sans-serif"),
             x=0.0,
+            pad=dict(b=8),
         ),
         xaxis=dict(
-            title=dict(text="Failure Mode", font=dict(color=t["text"])),
+            title=dict(text="Failure Mode", font=dict(color=t["text_muted"], size=11,
+                                                       family="Inter, sans-serif")),
             tickangle=-50,
-            tickfont=dict(size=10, color=t["text"]),
+            tickfont=dict(size=9, color=t["text_muted"], family="Inter, sans-serif"),
             gridcolor=t["grid"],
-            linecolor=t["grid"],
+            linecolor=t["axis_line"],
+            showline=True,
         ),
         yaxis=dict(
-            title=dict(text="RPN", font=dict(color=t["text"])),
-            tickfont=dict(color=t["text"]),
+            title=dict(text="Risk Priority Number (RPN)",
+                       font=dict(color=t["text_muted"], size=11, family="Inter, sans-serif")),
+            tickfont=dict(color=t["text_muted"], family="Inter, sans-serif"),
             gridcolor=t["grid"],
-            linecolor=t["grid"],
+            linecolor=t["axis_line"],
+            showline=True,
+            zeroline=False,
         ),
         yaxis2=dict(
-            title=dict(text="Cumulative RPN (%)", font=dict(color=t["text"])),
+            title=dict(text="Cumulative RPN (%)",
+                       font=dict(color=t["text_muted"], size=11, family="Inter, sans-serif")),
             overlaying="y",
             side="right",
             range=[0, 112],
-            tickfont=dict(color=t["text"]),
+            tickfont=dict(color=t["text_muted"], family="Inter, sans-serif"),
             gridcolor="rgba(0,0,0,0)",
+            showline=False,
         ),
         barmode="relative",
         legend=dict(
@@ -181,15 +183,19 @@ def pareto_chart_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
             y=1.02,
             xanchor="right",
             x=1,
-            font=dict(color=t["text"]),
+            font=dict(color=t["text"], size=11, family="Inter, sans-serif"),
             bgcolor="rgba(0,0,0,0)",
         ),
-        height=620,
+        height=580,
         plot_bgcolor=t["bg"],
         paper_bgcolor=t["paper"],
-        font=dict(color=t["text"]),
+        font=dict(color=t["text"], family="Inter, sans-serif"),
         margin=dict(l=60, r=80, t=80, b=160),
-        hoverlabel=dict(bgcolor=t["bg"], font=dict(color=t["text"])),
+        hoverlabel=dict(
+            bgcolor=t["bg"],
+            font=dict(color=t["text"], size=12, family="Inter, sans-serif"),
+            bordercolor=t["axis_line"],
+        ),
     )
 
     return fig
@@ -201,25 +207,13 @@ def pareto_chart_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
 
 def risk_heatmap_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
     """
-    Generate an interactive Plotly Severity × Occurrence risk heatmap.
+    Interactive Plotly Severity × Occurrence risk heatmap.
 
-    Each occupied cell shows the count of failure modes.
-    Cell color reflects the highest Risk_Tier present (Red > Yellow > Green).
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Analyzed FMEA DataFrame — output of run_pipeline() or rank_by_rpn().
-        Must contain columns: Severity, Occurrence, Risk_Tier.
-    dark : bool
-        If True, render with dark background theme.
-
-    Returns
-    -------
-    plotly.graph_objects.Figure
+    Each cell shows the count of failure modes at that S × O combination.
+    Color reflects the worst Risk_Tier present (Red > Yellow > Green).
     """
     t = _theme(dark)
-    empty_color = "#2a2f3e" if dark else "#f0f0f0"
+    empty_color = "#21262D" if dark else "#F8FAFC"
 
     TIER_RANK = {"Green": 1, "Yellow": 2, "Red": 3}
 
@@ -237,11 +231,11 @@ def risk_heatmap_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
     colorscale = [
         [0.00, empty_color],
         [0.01, empty_color],
-        [0.34, "#27ae60"],
-        [0.34, "#27ae60"],
-        [0.67, "#f39c12"],
-        [0.67, "#f39c12"],
-        [1.00, "#e74c3c"],
+        [0.34, "#16A34A"],
+        [0.34, "#16A34A"],
+        [0.67, "#D97706"],
+        [0.67, "#D97706"],
+        [1.00, "#DC2626"],
     ]
 
     text_matrix = [
@@ -253,8 +247,9 @@ def risk_heatmap_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
     tier_name_map = {0: "No failures", 1: "Green", 2: "Yellow", 3: "Red"}
     hover_matrix = [
         [
-            f"Severity: {i+1}<br>Occurrence: {j+1}<br>"
-            f"Count: {grid_count[i,j]}<br>Tier: {tier_name_map[grid_tier_rank[i,j]]}"
+            f"<b>Severity {i+1} × Occurrence {j+1}</b><br>"
+            f"Failure modes: <b>{grid_count[i,j]}</b><br>"
+            f"Worst tier: {tier_name_map[grid_tier_rank[i,j]]}"
             for j in range(10)
         ]
         for i in range(10)
@@ -270,7 +265,7 @@ def risk_heatmap_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
         showscale=False,
         text=text_matrix,
         texttemplate="%{text}",
-        textfont=dict(size=13, color="white"),
+        textfont=dict(size=13, color="white", family="Inter, sans-serif"),
         hoverinfo="text",
         hovertext=hover_matrix,
         xgap=3,
@@ -289,25 +284,32 @@ def risk_heatmap_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
 
     fig.update_layout(
         title=dict(
-            text="FMEA Risk Heatmap — Severity x Occurrence",
-            font=dict(size=16, color=t["text"]),
+            text="Risk Heatmap — Severity × Occurrence Matrix",
+            font=dict(size=15, color=t["text"], family="Inter, sans-serif"),
             x=0.0,
+            pad=dict(b=8),
         ),
         xaxis=dict(
-            title=dict(text="Occurrence (O)", font=dict(color=t["text"])),
+            title=dict(text="Occurrence (O)",
+                       font=dict(color=t["text_muted"], size=11, family="Inter, sans-serif")),
             tickmode="linear",
             tick0=1, dtick=1,
             constrain="domain",
-            tickfont=dict(color=t["text"]),
+            tickfont=dict(color=t["text_muted"], family="Inter, sans-serif"),
             gridcolor=t["grid"],
+            showline=True,
+            linecolor=t["axis_line"],
         ),
         yaxis=dict(
-            title=dict(text="Severity (S)", font=dict(color=t["text"])),
+            title=dict(text="Severity (S)",
+                       font=dict(color=t["text_muted"], size=11, family="Inter, sans-serif")),
             tickmode="linear",
             tick0=1, dtick=1,
             scaleanchor="x",
-            tickfont=dict(color=t["text"]),
+            tickfont=dict(color=t["text_muted"], family="Inter, sans-serif"),
             gridcolor=t["grid"],
+            showline=True,
+            linecolor=t["axis_line"],
         ),
         legend=dict(
             orientation="h",
@@ -315,15 +317,19 @@ def risk_heatmap_plotly(df: pd.DataFrame, dark: bool = False) -> go.Figure:
             y=1.02,
             xanchor="right",
             x=1,
-            font=dict(color=t["text"]),
+            font=dict(color=t["text"], size=11, family="Inter, sans-serif"),
             bgcolor="rgba(0,0,0,0)",
         ),
-        height=580,
+        height=540,
         plot_bgcolor=t["bg"],
         paper_bgcolor=t["paper"],
-        font=dict(color=t["text"]),
+        font=dict(color=t["text"], family="Inter, sans-serif"),
         margin=dict(l=60, r=40, t=80, b=60),
-        hoverlabel=dict(bgcolor=t["bg"], font=dict(color=t["text"])),
+        hoverlabel=dict(
+            bgcolor=t["bg"],
+            font=dict(color=t["text"], size=12, family="Inter, sans-serif"),
+            bordercolor=t["axis_line"],
+        ),
     )
 
     return fig
