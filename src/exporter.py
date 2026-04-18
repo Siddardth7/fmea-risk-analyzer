@@ -671,64 +671,67 @@ def _pdf_kpi_row(pdf: Any, df: pd.DataFrame) -> None:
 def _pdf_cover(pdf: Any, project_name: str, author_name: str) -> None:
     pdf.add_page()
 
-    # Full navy background
-    r, g, b = _PDF_NAVY
-    pdf.set_fill_color(r, g, b)
-    pdf.rect(0, 0, pdf.w, pdf.h, "F")
+    # ---- Navy header band at top ----
+    pdf.set_fill_color(*_PDF_NAVY)
+    pdf.rect(0, 0, pdf.w, 42, "F")
 
-    # Blue accent bar at top
-    r2, g2, b2 = _PDF_BLUE
-    pdf.set_fill_color(r2, g2, b2)
-    pdf.rect(0, 0, pdf.w, 6, "F")
+    # Blue accent line below header band
+    pdf.set_fill_color(*_PDF_BLUE)
+    pdf.rect(0, 42, pdf.w, 2.5, "F")
 
-    # Vertical center offset
-    pdf.set_y(38)
-
-    # Tool label
-    r3, g3, b3 = _PDF_BLUE_LITE
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_text_color(r3, g3, b3)
+    # Tool label inside header band
+    pdf.set_y(12)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*_PDF_WHITE)
     pdf.cell(0, 7, "FMEA RISK PRIORITIZATION TOOL", align="C")
-    pdf.ln(14)
+    pdf.ln(8)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*_PDF_BLUE_LITE)
+    pdf.cell(0, 5, _safe(_AIAG_REF), align="C")
+
+    # ---- Main content on white ----
+    pdf.set_y(68)
+
+    # Left accent bar beside title
+    pdf.set_fill_color(*_PDF_BLUE)
+    pdf.rect(pdf.l_margin, pdf.get_y(), 3, 22, "F")
 
     # Main title
-    pdf.set_font("Helvetica", "B", 30)
-    pdf.set_text_color(*_PDF_WHITE)
-    pdf.cell(0, 14, "Risk Analysis", align="C")
-    pdf.ln(14)
-    pdf.cell(0, 14, "Report", align="C")
-    pdf.ln(12)
+    pdf.set_x(pdf.l_margin + 7)
+    pdf.set_font("Helvetica", "B", 26)
+    pdf.set_text_color(*_PDF_NAVY)
+    pdf.cell(0, 13, "Risk Analysis Report", ln=True)
 
-    # Divider line
-    line_x1 = 60
-    line_x2 = pdf.w - 60
-    y = pdf.get_y()
-    pdf.set_draw_color(80, 120, 180)
-    pdf.set_line_width(0.4)
-    pdf.line(line_x1, y, line_x2, y)
+    pdf.ln(6)
+
+    # Full-width divider
+    y_div = pdf.get_y()
+    pdf.set_draw_color(*_PDF_BLUE)
+    pdf.set_line_width(0.5)
+    pdf.line(pdf.l_margin, y_div, pdf.w - pdf.r_margin, y_div)
     pdf.ln(10)
 
     # Project name
     if project_name:
         pdf.set_font("Helvetica", "B", 16)
-        pdf.set_text_color(226, 232, 240)
-        pdf.cell(0, 9, _safe(project_name), align="C")
-        pdf.ln(10)
+        pdf.set_text_color(*_PDF_NAVY)
+        pdf.cell(0, 9, _safe(project_name), ln=True)
+        pdf.ln(4)
 
     # Date and author
     pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(148, 163, 184)
-    pdf.cell(0, 7, f"Generated: {datetime.now().strftime('%B %d, %Y')}", align="C")
-    pdf.ln(7)
+    pdf.set_text_color(*_PDF_SLATE)
+    pdf.cell(0, 7, f"Generated: {datetime.now().strftime('%B %d, %Y')}", ln=True)
     if author_name:
-        pdf.cell(0, 7, f"Prepared by: {_safe(author_name)}", align="C")
-        pdf.ln(7)
+        pdf.cell(0, 7, f"Prepared by: {_safe(author_name)}", ln=True)
 
-    # AIAG ref at bottom
-    pdf.set_y(-20)
+    # ---- Navy footer band ----
+    pdf.set_fill_color(*_PDF_NAVY)
+    pdf.rect(0, pdf.h - 16, pdf.w, 16, "F")
+    pdf.set_y(pdf.h - 11)
     pdf.set_font("Helvetica", "", 8)
-    pdf.set_text_color(100, 116, 139)
-    pdf.cell(0, 5, _safe(f"Engineering Reference: {_AIAG_REF}"), align="C")
+    pdf.set_text_color(*_PDF_BLUE_LITE)
+    pdf.cell(0, 5, "Confidential  |  Engineering Use Only", align="C")
 
 
 def _pdf_exec_summary(pdf: Any, df: pd.DataFrame, project_name: str) -> None:
@@ -794,8 +797,9 @@ def _pdf_exec_summary(pdf: Any, df: pd.DataFrame, project_name: str) -> None:
              fill=False)
     pdf.ln(1)
 
-    top_cols = [("Rank", 10), ("Failure Mode", 70), ("Process Step", 52),
-                ("S", 8), ("O", 8), ("D", 8), ("RPN", 12), ("Tier", 18), ("AP-H", 14)]
+    # Widths sum to 186mm = A4(210) - l_margin(12) - r_margin(12)
+    top_cols = [("Rank", 8), ("Failure Mode", 64), ("Process Step", 46),
+                ("S", 7), ("O", 7), ("D", 7), ("RPN", 11), ("Tier", 16), ("AP-H", 20)]
 
     pdf.set_fill_color(*_PDF_NAVY)
     pdf.set_text_color(*_PDF_WHITE)
