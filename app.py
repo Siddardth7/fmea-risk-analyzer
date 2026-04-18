@@ -607,18 +607,14 @@ def render_insights(df: pd.DataFrame, dark: bool) -> None:
     sev9_count = int(df["Flag_High_Severity"].sum())
 
     parts = [
-        f"Top {top_n} failure modes account for <strong>{top_pct:.0f}%</strong> of total RPN.",
-        f"Highest risk: <strong>{str(top_item['Failure_Mode'])[:60]}</strong> "
-        f"(RPN&nbsp;=&nbsp;{int(top_item['RPN'])}, {top_item['Process_Step']}).",
+        f"Top {top_n} failure modes account for **{top_pct:.0f}%** of total RPN.",
+        f"Highest risk: **{str(top_item['Failure_Mode'])[:60]}** "
+        f"(RPN = {int(top_item['RPN'])}, {top_item['Process_Step']}).",
     ]
     if red_count:
-        parts.append(
-            f"<strong>{red_count}</strong> item(s) in the Red tier require immediate corrective action."
-        )
+        parts.append(f"**{red_count}** item(s) in the Red tier require immediate corrective action.")
     if sev9_count:
-        parts.append(
-            f"<strong>{sev9_count}</strong> safety-critical failure mode(s) flagged (Severity ≥ 9)."
-        )
+        parts.append(f"**{sev9_count}** safety-critical failure mode(s) flagged (Severity ≥ 9).")
 
     st.info("  ·  ".join(parts))
 
