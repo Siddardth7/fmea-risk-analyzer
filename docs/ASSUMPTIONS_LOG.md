@@ -81,13 +81,15 @@ This log is the defense against any interview question about methodology choices
 
 ---
 
-## RULE 5 — Pareto Chart 80/20 Threshold
+## RULE 5 — Pareto Chart Bar Coloring
 
-**Decision:** Define the Pareto "vital few" cutoff at **80% of cumulative RPN contribution**. Failure modes in the top 80% cumulative RPN are colored Red on the Pareto chart; 80–95% are Yellow; beyond 95% are Green.
+**Decision:** Pareto chart bars are **colored by Risk_Tier** (Red/Yellow/Green) assigned in Rule 4, not by Pareto 80/20 cumulative banding. A dashed 80% reference line is overlaid on the cumulative % line to help users identify the "vital few" failure modes visually.
 
-**Source:** Pareto Principle (Vilfredo Pareto, 1896) — applied to quality engineering by Joseph Juran as the 80/20 rule. In FMEA context: roughly 20% of failure modes typically account for 80% of total RPN, directing corrective action resources efficiently.
+**Source:** Pareto Principle (Vilfredo Pareto, 1896) — applied to quality engineering by Joseph Juran as the 80/20 rule. In FMEA context: the cumulative RPN line shows where risk is concentrated, enabling corrective action prioritization.
 
-**Applied In:** `src/charts.py` → `pareto_chart()` → color band logic
+**Note on demo dataset:** The composite panel demo dataset does not exhibit a classic 80/20 distribution. The top 6 of 30 failure modes account for approximately 29% of total RPN. The Pareto chart remains useful for identifying the highest-RPN failure modes regardless of the exact cumulative percentage.
+
+**Applied In:** `src/plotly_charts.py` → `pareto_chart_plotly()` → bar color mapped to `Risk_Tier`
 
 ---
 

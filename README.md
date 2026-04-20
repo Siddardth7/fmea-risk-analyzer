@@ -3,10 +3,10 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.56-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Plotly](https://img.shields.io/badge/Plotly-6.6-3F4F75?logo=plotly&logoColor=white)](https://plotly.com)
-[![Tests](https://img.shields.io/badge/Tests-61%20passing-brightgreen?logo=pytest)](https://github.com/Siddardth7/fmea-risk-analyzer)
+[![Tests](https://img.shields.io/badge/Tests-78%20passing-brightgreen?logo=pytest)](https://github.com/Siddardth7/fmea-risk-analyzer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**A production-grade Python tool that automates Process FMEA risk analysis** — calculates RPN scores, applies AIAG FMEA-4 criticality flags, generates interactive Pareto and heatmap visualizations, and exports publication-ready PDF and Excel reports. Deployed as a live Streamlit web application.
+**A portfolio-grade Python tool that automates Process FMEA risk analysis** — calculates RPN scores, applies AIAG FMEA-4 criticality flags, generates interactive Pareto and heatmap visualizations, and exports publication-ready PDF and Excel reports. Deployed as a live Streamlit web application.
 
 > **Live Demo →** [fmea-risk-analyzer-mhwzcki9sdzfz5d8rbzsdn.streamlit.app](https://fmea-risk-analyzer-mhwzcki9sdzfz5d8rbzsdn.streamlit.app/)
 
@@ -140,7 +140,7 @@ The Pareto chart in this tool:
 3. **Marks the 80% threshold** with a dashed reference line
 4. **Colors bars by Risk Tier** (Red/Yellow/Green) so risk concentration is immediately visible
 
-In the composite panel demo dataset, the **top 6 failure modes (out of 30) account for over 80% of total RPN** — exactly the modes where corrective action spending should be concentrated: autoclave cure temperature deviation, vacuum bag leak, and ply misalignment during layup.
+In the composite panel demo dataset, the **top 6 failure modes (out of 30) account for approximately 29% of total RPN** — the chart's cumulative line makes it easy to identify where corrective action spending should be concentrated: autoclave cure temperature deviation, vacuum bag leak, and ply misalignment during layup.
 
 **How to read it:** Any failure mode whose bar falls to the left of where the cumulative line crosses 80% should be your engineering team's primary corrective action focus.
 
@@ -219,7 +219,7 @@ Plotly figures are generated once per filter-state change and cached in `st.sess
 
 **Step 8 — Export** (`src/exporter.py`)
 - **Excel**: `openpyxl` writes a 2-sheet workbook — Sheet 1 is the ranked table with `PatternFill` color-coding per Risk_Tier, Sheet 2 is a metadata summary. Returned as `io.BytesIO` bytes.
-- **PDF**: `fpdf2` generates an A4 landscape report. Page 1 is the summary metrics + full ranked table with tier-colored rows. Pages 2–3 embed the Pareto and heatmap charts as PNG images rendered by `kaleido` from the live Plotly figures.
+- **PDF**: `fpdf2` generates an A4 landscape report. Page 1 is the summary metrics + full ranked table with tier-colored rows. Pages 2–3 embed the Pareto and heatmap charts as PNG images rendered by `matplotlib`.
 
 ---
 
@@ -227,7 +227,7 @@ Plotly figures are generated once per filter-state change and cached in `st.sess
 
 | Feature | Detail |
 |---|---|
-| **File upload** | CSV and Excel (.xlsx, .xls) supported; schema validated on upload |
+| **File upload** | CSV and Excel (.xlsx) supported; schema validated on upload |
 | **Demo dataset** | 30-row composite panel PFMEA loads in one click — no file needed |
 | **RPN calculation** | Vectorized S × O × D; 100% accurate against AIAG FMEA-4 formula |
 | **AIAG flags** | All 3 flag types: High RPN, Severity ≥ 9, Action Priority H |
@@ -240,15 +240,13 @@ Plotly figures are generated once per filter-state change and cached in `st.sess
 | **Excel export** | 2-sheet openpyxl workbook with tier color fills + metadata sheet |
 | **PDF export** | 3-page A4 landscape: summary table + Pareto PNG + Heatmap PNG |
 | **CLI mode** | `fmea_analyzer.py --input FILE --charts` for terminal/pipeline use |
-| **61 tests** | Full pytest suite covering RPN logic, visualizations, edge cases, export |
+| **78 tests** | Full pytest suite covering RPN logic, visualizations, edge cases, export |
 
 ---
 
 ## 7. Screenshots
 
-| Ranked Risk Table | Pareto Chart | Risk Heatmap |
-|:---:|:---:|:---:|
-| ![Ranked Table](assets/screenshot_table.png) | ![Pareto](assets/screenshot_pareto.png) | ![Heatmap](assets/screenshot_heatmap.png) |
+<!-- Screenshots coming soon -->
 
 *Load the [live demo](https://fmea-risk-analyzer-mhwzcki9sdzfz5d8rbzsdn.streamlit.app/) and click **Use Demo Dataset** to see all panels in action.*
 
@@ -355,7 +353,7 @@ A blank template is at `data/fmea_input_template.csv`.
 
 ## 11. Demo Dataset
 
-`data/composite_panel_fmea_demo.csv` contains **30 failure modes** across **6 process steps** of a carbon fiber reinforced polymer (CFRP) composite panel manufacturing line — a realistic aerospace PFMEA scenario:
+`data/composite_panel_fmea_demo.csv` contains **30 failure modes** across **11 process steps** of a carbon fiber reinforced polymer (CFRP) composite panel manufacturing line — a realistic aerospace PFMEA scenario:
 
 | Process Step | Example Failure Modes |
 |---|---|
@@ -366,7 +364,7 @@ A blank template is at `data/fmea_input_template.csv`.
 | **Post-Cure Inspection** | NDI (ultrasonic) miss of subsurface void, dimensional non-conformance |
 | **Assembly** | Fastener overtorque causing bearing failure, adhesive bond deficiency |
 
-Severity, Occurrence, and Detection scores are calibrated to reflect realistic aerospace supply chain conditions. The dataset produces a textbook 80/20 Pareto distribution: the top 6 failure modes account for approximately 82% of total RPN.
+Severity, Occurrence, and Detection scores are calibrated to reflect realistic aerospace supply chain conditions. Risk distribution: Red=19, Yellow=9, Green=2. High RPN (>100) = 14, Action Priority H = 8. The top 6 failure modes account for approximately 29% of total RPN.
 
 ---
 
@@ -379,25 +377,27 @@ Severity, Occurrence, and Detection scores are calibrated to reflect realistic a
 | Data Processing | [pandas 3.0](https://pandas.pydata.org) + [numpy 2.4](https://numpy.org) | DataFrame operations, vectorized RPN |
 | PDF Export | [fpdf2 2.8](https://py-pdf.github.io/fpdf2/) | Multi-page A4 landscape PDF report |
 | Excel Export | [openpyxl 3.1](https://openpyxl.readthedocs.io) | Color-coded .xlsx workbook |
-| Chart → PNG | [kaleido 1.2](https://github.com/plotly/Kaleido) | Render Plotly figures to PNG for PDF embedding |
-| CLI Charts | [matplotlib 3.10](https://matplotlib.org) | Static chart generation for terminal use |
-| Testing | [pytest 9.0](https://pytest.org) | 61 unit tests across 4 test modules |
+| CLI Charts | [matplotlib 3.10](https://matplotlib.org) | Static chart generation for terminal use and PDF embedding |
+| Testing | [pytest 9.0](https://pytest.org) | 78 unit tests across 4 test modules (install via requirements-dev.txt) |
 
 ---
 
 ## 13. Running Tests
 
+Test dependencies (`pytest`) are in `requirements-dev.txt`:
+
 ```bash
+pip install -r requirements-dev.txt
 python3 -m pytest tests/ -v
 ```
 
 ```
-tests/test_rpn_engine.py              13 passed
-tests/test_streamlit_edge_cases.py    20 passed
-tests/test_visualizer.py              16 passed
-tests/test_exporter.py                12 passed
+tests/test_rpn_engine.py              passed
+tests/test_streamlit_edge_cases.py    passed
+tests/test_visualizer.py              passed
+tests/test_exporter.py                passed
 ------------------------------------------------
-61 passed in ~22s
+78 passed
 ```
 
 Every threshold decision (RPN > 100, Severity ≥ 9, Action Priority H thresholds) has a corresponding test that verifies the correct row is flagged or not flagged. See `docs/ASSUMPTIONS_LOG.md` for the source citations behind each decision.

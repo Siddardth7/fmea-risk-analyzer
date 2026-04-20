@@ -181,7 +181,7 @@ Every step has failure points. The formula might be broken in one row. Sorting i
 
 ### Why This Tool Was Needed
 
-The tool was built to demonstrate that the entire FMEA workflow — from raw data to ranked risk table to visual dashboard to formatted report — can be fully automated in Python, deployed as a free web application, and made accessible to any engineer in seconds. It is also a portfolio demonstration of applied engineering knowledge combined with production-grade software development.
+The tool was built to demonstrate that the entire FMEA workflow — from raw data to ranked risk table to visual dashboard to formatted report — can be fully automated in Python, deployed as a free web application, and made accessible to any engineer in seconds. It is also a portfolio demonstration of applied engineering knowledge combined with structured, test-driven software development.
 
 ---
 
@@ -218,13 +218,13 @@ FMEA File    ──────►  Calculate RPN (S × O × D)    ──►  Co
 | **Excel export** | Color-coded 2-sheet workbook with metadata summary |
 | **PDF export** | 3-page A4 landscape report with table, Pareto, and heatmap |
 | **CLI mode** | Terminal command for batch use or pipeline integration |
-| **61 tests** | Full pytest suite ensuring every calculation is correct |
+| **78 tests** | Full pytest suite ensuring every calculation is correct |
 
 ### What Makes This Tool Different
 
-1. **Standards-grounded:** Every threshold (RPN > 100, Severity ≥ 9, Action Priority H) is directly sourced from AIAG FMEA-4 and documented in `docs/ASSUMPTIONS_LOG.md` with citations.
+1. **Standards-grounded:** Every threshold (RPN > 100, Severity ≥ 9, Action Priority H) is sourced from AIAG FMEA-4 and documented in `docs/ASSUMPTIONS_LOG.md` with citations. Note: `Flag_Action_Priority_H` uses a threshold simplification (`RPN >= 200 OR Severity >= 9`), not the full 2019 AIAG/VDA Action Priority lookup table.
 
-2. **Production-grade quality:** 61 unit tests, validated against the AIAG standard, clean architecture with separated concerns (engine / visualization / export / UI).
+2. **Demo-quality implementation:** 78 unit tests, validated against the AIAG standard, clean architecture with separated concerns (engine / visualization / export / UI).
 
 3. **Immediately deployable:** Runs as a web app at a public URL. No installation. No license. No login.
 
@@ -439,7 +439,7 @@ Steps:
 4. Overlay this as a line on the second y-axis
 5. Draw a dashed horizontal reference line at 80%
 
-**How to interpret:** Any failure mode whose bar falls to the left of where the cumulative line crosses 80% is in your "vital few" — these should be your team's primary corrective action focus. In the demo dataset, 6 of 30 failure modes account for 82% of total RPN.
+**How to interpret:** Any failure mode whose bar falls to the left of where the cumulative line crosses 80% is in your "vital few" — these should be your team's primary corrective action focus. In the demo dataset, the top 6 of 30 failure modes account for approximately 29% of total RPN; the 80% threshold is crossed further along the distribution.
 
 ### Risk Heatmap Logic
 
@@ -466,7 +466,7 @@ The heatmap reveals **risk concentration patterns** — for example, clustering 
 | S/O/D out of range | Reports which row IDs contain values outside [1, 10] |
 | Non-numeric S/O/D | Reports actual dtype found |
 | All failure modes filtered out | Charts show "No data" message; PDF export disabled |
-| Unsupported file format | Rejects with descriptive error; accepts .csv, .xlsx, .xls only |
+| Unsupported file format | Rejects with descriptive error; accepts .csv and .xlsx only |
 
 ---
 
@@ -488,7 +488,7 @@ fmea-risk-analyzer/
 │   ├── plotly_charts.py             # Plotly charts for Streamlit (interactive)
 │   └── exporter.py                  # Excel (openpyxl) + PDF (fpdf2) export
 │
-├── tests/                           # pytest test suite (61 tests)
+├── tests/                           # pytest test suite (78 tests)
 │   ├── test_rpn_engine.py           # 13 tests: RPN math, flagging, ranking
 │   ├── test_visualizer.py           # 16 tests: chart function coverage
 │   ├── test_streamlit_edge_cases.py # 20 tests: edge cases (empty, malformed)
@@ -608,7 +608,7 @@ rpn_engine.run_pipeline(df)      ← returns fully analyzed DataFrame
 ### Feature 1 — File Upload
 
 **Location:** Left sidebar, "Data Source" section  
-**How it works:** Streamlit's `file_uploader` widget accepts `.csv`, `.xlsx`, `.xls`. The file is read into a pandas DataFrame using `pd.read_csv()` or `pd.read_excel()`. Schema validation fires immediately.
+**How it works:** Streamlit's `file_uploader` widget accepts `.csv` and `.xlsx`. The file is read into a pandas DataFrame using `pd.read_csv()` or `pd.read_excel()`. Schema validation fires immediately.
 
 **What users see:** A drag-and-drop area. After uploading, the filename appears as a caption.
 
@@ -619,7 +619,7 @@ rpn_engine.run_pipeline(df)      ← returns fully analyzed DataFrame
 **Location:** "Use Demo Dataset" button in sidebar  
 **What it loads:** `data/composite_panel_fmea_demo.csv` — 30 failure modes from a carbon fiber composite panel manufacturing process across 6 process steps (Prepreg Layup, Vacuum Bagging, Autoclave Cure, Demolding, Non-Destructive Inspection, Assembly).
 
-**Why it's useful:** Lets anyone explore the tool without having an FMEA file ready. Produces a textbook-quality 80/20 Pareto distribution.
+**Why it's useful:** Lets anyone explore the tool without having an FMEA file ready. Produces a realistic risk distribution (Red=19, Yellow=9, Green=2) useful for exploring all tool features.
 
 ### Feature 3 — 7 Metric Badges
 
@@ -754,19 +754,19 @@ Click "Download Excel" for a formatted workbook to share with your team. Click "
 
 **Results (demo dataset):**
 - Total failure modes: 30
-- Red (immediate action): 12
-- Yellow (action recommended): 8
-- Green (monitor): 10
-- High RPN (>100): 10
+- Red (immediate action): 19
+- Yellow (action recommended): 9
+- Green (monitor): 2
+- High RPN (>100): 14
 - Severity ≥ 9: 8
-- Action Priority H: 10
+- Action Priority H: 8
 
 **Top 3 failure modes by RPN:**
 1. **Scanner calibration drift — missed defect** (NDI step) — RPN 360, S=10, O=2, D=3 → 🔴 Red
 2. **NDI finding not dispositioned** (NDI step) — RPN 162, S=9, O=2, D=3 → 🔴 Red  
 3. **Temperature overshoot during cure** (Autoclave Cure) — RPN 160, S=8, O=2, D=4 → 🔴 Red
 
-**Corrective action focus:** The Pareto chart shows that 6 failure modes (20% of total) account for ~82% of total RPN. Those 6 should be assigned to corrective action engineers with root cause analysis and timeline commitments before the rest are addressed.
+**Corrective action focus:** The Pareto chart ranks failure modes from highest to lowest RPN. In this dataset, the top 6 failure modes (20% of total) account for approximately 29% of total RPN. Use the cumulative % line on the chart to identify where to concentrate corrective action resources.
 
 ### Best Practices for Users
 
@@ -852,7 +852,7 @@ python -m pytest tests/test_rpn_engine.py -v
 python -m pytest tests/ --cov=src
 ```
 
-Expected output: **61 tests passing** in approximately 22 seconds.
+Expected output: **78 tests passing**.
 
 ---
 

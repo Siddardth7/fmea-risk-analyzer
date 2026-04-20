@@ -123,7 +123,7 @@ def _load_uploaded(file) -> pd.DataFrame:
     name = file.name.lower()
     if name.endswith(".csv"):
         return pd.read_csv(file)
-    elif name.endswith((".xlsx", ".xls")):
+    elif name.endswith(".xlsx"):
         return pd.read_excel(file)
     else:
         raise ValueError(f"Unsupported file type: {file.name}. Please upload .csv or .xlsx.")
@@ -179,7 +179,7 @@ def render_sidebar():
 
     uploaded = st.sidebar.file_uploader(
         "Upload FMEA file",
-        type=["csv", "xlsx", "xls"],
+        type=["csv", "xlsx"],
         help=(
             "CSV or Excel with 11 columns: ID, Process_Step, Component, "
             "Function, Failure_Mode, Effect, Severity, Cause, "
