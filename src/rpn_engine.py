@@ -67,7 +67,8 @@ def validate_input(df: pd.DataFrame) -> None:
       1. DataFrame is not empty (≥ 1 row)
       2. All required columns are present
       3. S/O/D columns contain numeric values (no strings, no NaN)
-      4. S/O/D values are integers in the range [1, 10]
+      3b. S/O/D values are strict integers — booleans and floats are rejected
+      4. S/O/D values are in the range [1, 10]
 
     Parameters
     ----------
@@ -121,13 +122,16 @@ def validate_input(df: pd.DataFrame) -> None:
             )
 
     # --- Check 3b: S/O/D must be strict integers (no floats, no booleans) ---
+    def _is_strict_int(x: object) -> bool:
+        """Return True only for strict integers — not booleans, not floats."""
+        if isinstance(x, bool):
+            return False
+        return isinstance(x, (int, np.integer))
+
     for col in SCORE_COLUMNS:
-        def _is_strict_int(x):
-            if isinstance(x, bool):
-                return False
-            return isinstance(x, (int, np.integer))
-        if not df[col].apply(_is_strict_int).all():
-            bad_ids = df.loc[~df[col].apply(_is_strict_int), "ID"].tolist()
+        mask = df[col].apply(_is_strict_int)
+        if not mask.all():
+            bad_ids = df.loc[~mask, "ID"].tolist()
             raise ValueError(
                 f"Column '{col}' must contain integer values only (1–10). "
                 f"Floats and booleans are not valid FMEA scores. "

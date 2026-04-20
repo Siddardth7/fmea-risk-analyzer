@@ -386,3 +386,11 @@ def test_numeric_string_score_rejected():
     df.loc[0, "Severity"] = "8"
     with pytest.raises(ValueError):
         validate_input(df)
+
+
+def test_bool_dtype_column_rejected():
+    """A column with dtype=bool must be rejected — it is not integer."""
+    df = _valid_df()
+    df["Severity"] = df["Severity"].astype(bool)
+    with pytest.raises(ValueError, match="integer"):
+        validate_input(df)
