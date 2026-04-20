@@ -3,8 +3,8 @@ exporter.py
 FMEA Risk Prioritization Tool — Export Layer
 
 Functions:
-    export_excel(df)                        → bytes  (openpyxl .xlsx)
-    export_pdf(df, pareto_fig, heatmap_fig) → bytes  (fpdf2 .pdf)
+    export_excel(df) → bytes  (openpyxl .xlsx)
+    export_pdf(df)   → bytes  (fpdf2 .pdf, charts rendered via matplotlib)
 
 Both return raw bytes suitable for st.download_button().
 
@@ -187,26 +187,18 @@ def _write_metadata_sheet(wb: openpyxl.Workbook, df: pd.DataFrame) -> None:
 # export_pdf
 # ---------------------------------------------------------------------------
 
-def export_pdf(
-    df: pd.DataFrame,
-    pareto_fig: Any,
-    heatmap_fig: Any,
-) -> bytes:
+def export_pdf(df: pd.DataFrame) -> bytes:
     """
-    Export the analyzed FMEA DataFrame to a PDF report.
+    Export the analyzed FMEA DataFrame to a PDF report using matplotlib.
 
     Page 1: Summary header + flag counts + ranked FMEA table.
-    Page 2: Pareto chart (Plotly → PNG via kaleido).
-    Page 3: Risk heatmap (Plotly → PNG via kaleido).
+    Page 2: Pareto chart (matplotlib).
+    Page 3: Risk heatmap (matplotlib).
 
     Parameters
     ----------
     df : pd.DataFrame
         Output of run_pipeline().
-    pareto_fig : plotly.graph_objects.Figure
-        Pareto chart figure from pareto_chart_plotly().
-    heatmap_fig : plotly.graph_objects.Figure
-        Heatmap figure from risk_heatmap_plotly().
 
     Returns
     -------

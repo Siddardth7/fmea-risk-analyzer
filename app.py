@@ -486,10 +486,7 @@ def render_export_buttons(
     pdf_key = _export_cache_key(df, rpn_min, sev9_only, process_steps, "pdf")
     if st.session_state.get("_pdf_cache_key") != pdf_key:
         try:
-            if pareto_fig is not None and heatmap_fig is not None:
-                st.session_state["_pdf_bytes"] = export_pdf(df, pareto_fig, heatmap_fig)
-            else:
-                st.session_state["_pdf_bytes"] = None
+            st.session_state["_pdf_bytes"] = export_pdf(df)
             st.session_state["_pdf_cache_key"] = pdf_key
         except Exception as exc:
             st.session_state["_pdf_bytes"] = None
