@@ -419,6 +419,22 @@ def test_non_integer_id_rejected():
     with pytest.raises(ValueError, match="ID"):
         validate_input(df)
 
+def test_float_id_rejected():
+    """Float IDs must be rejected — 1.5 is not a valid integer ID."""
+    df = _valid_df()
+    df["ID"] = df["ID"].astype(float)
+    df.loc[0, "ID"] = 1.5
+    with pytest.raises(ValueError, match="ID"):
+        validate_input(df)
+
+def test_bool_id_rejected():
+    """Boolean IDs must be rejected."""
+    df = _valid_df()
+    df["ID"] = df["ID"].astype(object)
+    df.loc[0, "ID"] = True
+    with pytest.raises(ValueError, match="ID"):
+        validate_input(df)
+
 def test_duplicate_ids_rejected():
     df = _valid_df()
     df2 = _valid_df()

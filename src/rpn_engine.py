@@ -61,6 +61,17 @@ RPN_YELLOW_MIN = 50         # RPN 50–100 AND Severity < 9 → Yellow
 
 
 # ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
+
+def _is_strict_int(x: object) -> bool:
+    """Return True only for strict integers — not booleans, not floats."""
+    if isinstance(x, bool):
+        return False
+    return isinstance(x, (int, np.integer))
+
+
+# ---------------------------------------------------------------------------
 # validate_input
 # ---------------------------------------------------------------------------
 
@@ -74,6 +85,8 @@ def validate_input(df: pd.DataFrame) -> None:
       3. S/O/D columns contain numeric values (no strings, no NaN)
       3b. S/O/D values are strict integers — booleans and floats are rejected
       4. S/O/D values are in the range [1, 10]
+      5. ID column is non-null, strict integer (no floats, no booleans), and unique
+      6. Required text columns are non-null strings
 
     Parameters
     ----------
@@ -127,12 +140,6 @@ def validate_input(df: pd.DataFrame) -> None:
             )
 
     # --- Check 3b: S/O/D must be strict integers (no floats, no booleans) ---
-    def _is_strict_int(x: object) -> bool:
-        """Return True only for strict integers — not booleans, not floats."""
-        if isinstance(x, bool):
-            return False
-        return isinstance(x, (int, np.integer))
-
     for col in SCORE_COLUMNS:
         mask = df[col].apply(_is_strict_int)
         if not mask.all():
@@ -154,16 +161,14 @@ def validate_input(df: pd.DataFrame) -> None:
                 f"Valid range is {SCORE_MIN}–{SCORE_MAX} (AIAG FMEA-4 scale)."
             )
 
-    # --- Check 5: ID must be non-null and integer-convertible; no duplicates ---
+    # --- Check 5: ID must be non-null and strict integer; no duplicates ---
     if df["ID"].isnull().any():
         raise ValueError(
             "Column 'ID' contains null values. Every row must have a unique integer ID."
         )
-    try:
-        df["ID"].apply(lambda x: int(x))
-    except (ValueError, TypeError):
+    if not df["ID"].apply(_is_strict_int).all():
         raise ValueError(
-            "Column 'ID' contains non-integer values. IDs must be integers."
+            "Column 'ID' contains non-integer values. IDs must be integers (no floats, no strings, no booleans)."
         )
     if df["ID"].duplicated().any():
         dupes = df.loc[df["ID"].duplicated(keep=False), "ID"].unique().tolist()
