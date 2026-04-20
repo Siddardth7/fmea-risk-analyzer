@@ -54,6 +54,19 @@ _COL_WIDTHS = {
 
 _TOOL_VERSION = "1.0.0"
 
+_FORMULA_PREFIXES = ("=", "+", "-", "@")
+
+
+def _sanitize_for_export(df: pd.DataFrame) -> pd.DataFrame:
+    """Escape formula-injection prefixes in all string columns to prevent spreadsheet attacks."""
+    df = df.copy()
+    for col in df.select_dtypes(include=["object", "string"]).columns:
+        df[col] = df[col].apply(
+            lambda v: f"'{v}" if isinstance(v, str) and v.startswith(_FORMULA_PREFIXES) else v
+        )
+    return df
+
+
 # PDF layout constants
 _PDF_TIER_RGB = {
     "Red":    (252, 228, 228),
@@ -95,6 +108,7 @@ def export_excel(df: pd.DataFrame) -> bytes:
     bytes
         Raw .xlsx bytes suitable for st.download_button().
     """
+    df = _sanitize_for_export(df)
     wb = openpyxl.Workbook()
 
     _write_fmea_sheet(wb, df)

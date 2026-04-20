@@ -18,7 +18,7 @@ from src.rpn_engine import (
     validate_input,
 )
 from src.plotly_charts import pareto_chart_plotly, risk_heatmap_plotly
-from src.exporter import export_excel, export_pdf
+from src.exporter import export_excel, export_pdf, _sanitize_for_export
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -470,7 +470,7 @@ def render_export_buttons(df: pd.DataFrame, pareto_fig, heatmap_fig) -> None:
     with col_csv:
         st.download_button(
             label="📋  Download CSV",
-            data=df.to_csv(index=False).encode("utf-8"),
+            data=_sanitize_for_export(df).to_csv(index=False).encode("utf-8"),
             file_name="fmea_analysis.csv",
             mime="text/csv",
             use_container_width=True,

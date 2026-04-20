@@ -119,3 +119,41 @@ class TestExportPdf:
         single = _sample_df().head(1)
         result = export_pdf(single, pareto, heatmap)
         assert isinstance(result, bytes)
+
+
+# ---------------------------------------------------------------------------
+# Formula injection tests
+# ---------------------------------------------------------------------------
+
+def _pipeline_df_with_formula():
+    """DataFrame with formula-injection strings in text fields."""
+    from src.rpn_engine import run_pipeline
+    import pandas as pd
+    df = pd.DataFrame([{
+        "ID": 1, "Process_Step": "=SUM(1,2)",
+        "Component": "+malicious", "Function": "Structural support",
+        "Failure_Mode": "=2+2", "Effect": "@badcell",
+        "Severity": 8, "Cause": "-exploit",
+        "Occurrence": 3, "Current_Control": "Visual inspection",
+        "Detection": 4,
+    }])
+    return run_pipeline(df)
+
+def test_excel_no_formula_injection():
+    df = _pipeline_df_with_formula()
+    raw = export_excel(df)
+    wb = openpyxl.load_workbook(io.BytesIO(raw), data_only=False)
+    ws = wb.active
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            assert cell.data_type != "f", (
+                f"Cell {cell.coordinate} was stored as a formula: {cell.value}"
+            )
+
+def test_sanitize_escapes_formula_prefixes():
+    from src.exporter import _sanitize_for_export
+    df = pd.DataFrame([{"Failure_Mode": "=evil", "Component": "+bad", "Effect": "'-also", "Process_Step": "@nope", "ID": 1}])
+    result = _sanitize_for_export(df)
+    assert result.loc[0, "Failure_Mode"] == "'=evil"
+    assert result.loc[0, "Component"] == "'+bad"
+    assert result.loc[0, "Process_Step"] == "'@nope"
