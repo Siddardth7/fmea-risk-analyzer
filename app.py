@@ -6,6 +6,7 @@ Author: Siddardth | M.S. Aerospace Engineering, UIUC
 Engineering reference: AIAG FMEA-4 + AIAG/VDA FMEA Handbook (5th Ed., 2019)
 """
 
+import hashlib
 from pathlib import Path
 
 import pandas as pd
@@ -434,39 +435,80 @@ def render_critical_panel(df: pd.DataFrame) -> None:
 # Export
 # ---------------------------------------------------------------------------
 
-def render_export_buttons(df: pd.DataFrame, pareto_fig, heatmap_fig) -> None:
+def _export_cache_key(
+    df: pd.DataFrame,
+    rpn_min: int,
+    sev9_only: bool,
+    process_steps: list,
+    export_type: str,
+) -> tuple:
+    """Stable cache key for export bytes — includes filtered data hash and all filter state."""
+    df_hash = hashlib.md5(df.to_json().encode()).hexdigest()
+    return (df_hash, rpn_min, sev9_only, tuple(sorted(process_steps)), export_type)
+
+
+def render_export_buttons(
+    df: pd.DataFrame,
+    pareto_fig,
+    heatmap_fig,
+    rpn_min: int,
+    sev9_only: bool,
+    process_steps: list,
+) -> None:
     st.subheader("📥  Export Report")
 
     col_xl, col_pdf, col_csv, _ = st.columns([1, 1, 1, 3])
 
+    # --- Excel (lazy, cached by filtered-data hash + filter state) ---
+    xl_key = _export_cache_key(df, rpn_min, sev9_only, process_steps, "excel")
+    if st.session_state.get("_xl_cache_key") != xl_key:
+        try:
+            st.session_state["_xl_bytes"] = export_excel(df)
+            st.session_state["_xl_cache_key"] = xl_key
+        except Exception as exc:
+            st.session_state["_xl_bytes"] = None
+            st.session_state["_xl_cache_key"] = xl_key
+            st.warning(f"Excel export unavailable: {exc}")
+
     with col_xl:
+        xl_bytes = st.session_state.get("_xl_bytes")
         st.download_button(
             label="📊  Download Excel",
-            data=export_excel(df),
+            data=xl_bytes or b"",
             file_name="fmea_analysis.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
+            disabled=xl_bytes is None,
             help="Color-coded 2-sheet workbook with metadata summary",
         )
 
-    with col_pdf:
-        if pareto_fig is not None and heatmap_fig is not None:
-            st.download_button(
-                label="📄  Download PDF",
-                data=export_pdf(df, pareto_fig, heatmap_fig),
-                file_name="fmea_report.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                help="3-page A4 landscape: table + Pareto + Heatmap",
-            )
-        else:
-            st.button(
-                "📄  Download PDF",
-                disabled=True,
-                use_container_width=True,
-                help="Requires at least one row in the filtered table",
-            )
+    # --- PDF (lazy, cached by filtered-data hash + filter state) ---
+    pdf_key = _export_cache_key(df, rpn_min, sev9_only, process_steps, "pdf")
+    if st.session_state.get("_pdf_cache_key") != pdf_key:
+        try:
+            if pareto_fig is not None and heatmap_fig is not None:
+                st.session_state["_pdf_bytes"] = export_pdf(df, pareto_fig, heatmap_fig)
+            else:
+                st.session_state["_pdf_bytes"] = None
+            st.session_state["_pdf_cache_key"] = pdf_key
+        except Exception as exc:
+            st.session_state["_pdf_bytes"] = None
+            st.session_state["_pdf_cache_key"] = pdf_key
+            st.warning(f"PDF export unavailable: {exc}")
 
+    with col_pdf:
+        pdf_bytes = st.session_state.get("_pdf_bytes")
+        st.download_button(
+            label="📄  Download PDF",
+            data=pdf_bytes or b"",
+            file_name="fmea_report.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            disabled=pdf_bytes is None,
+            help="3-page A4 landscape: table + Pareto + Heatmap",
+        )
+
+    # --- CSV (always fresh — cheap operation, no caching needed) ---
     with col_csv:
         st.download_button(
             label="📋  Download CSV",
@@ -613,7 +655,7 @@ def main() -> None:
         render_critical_panel(df_filtered)
 
     st.divider()
-    render_export_buttons(df_filtered, pareto_fig, heatmap_fig)
+    render_export_buttons(df_filtered, pareto_fig, heatmap_fig, rpn_min, sev9_only, process_steps)
 
 
 if __name__ == "__main__":
