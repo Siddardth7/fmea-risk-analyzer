@@ -32,9 +32,12 @@ Transform the FMEA Risk Analyzer from a polished portfolio demo into a hardened 
 ### 1.1 Schema Validation Hardening (`src/rpn_engine.py`)
 
 - Enforce integer-only S/O/D: reject floats, booleans, and numeric strings
-- Add null checks for `ID`, `Process_Step`, `Failure_Mode`, and all report-driving columns
+- Add null/type checks for all required non-score columns explicitly:
+  - `ID` — must be non-null and integer-convertible; duplicate IDs rejected at this boundary
+  - `Process_Step` — must be non-null string (drives UI filtering)
+  - `Component`, `Function`, `Failure_Mode`, `Effect`, `Cause`, `Current_Control` — must be non-null strings (drive reporting)
 - All rejections happen at the validation boundary — nothing malformed reaches UI, charts, or export
-- Add regression tests: decimal inputs, null text fields, invalid IDs, boolean scores
+- Add regression tests: decimal inputs, null text fields, null ID, non-integer ID, duplicate IDs, boolean scores
 
 ### 1.2 Formula Injection Fix (`src/exporter.py`)
 
@@ -44,14 +47,15 @@ Transform the FMEA Risk Analyzer from a polished portfolio demo into a hardened 
 
 ### 1.3 Lazy Export Generation (`app.py`)
 
-- Cache `export_excel()` and `export_pdf()` results in `st.session_state` keyed by dataset hash
-- Generate bytes only once per dataset, not on every Streamlit rerender
+- Cache `export_excel()` and `export_pdf()` results in `st.session_state` keyed by **filtered DataFrame hash + filter state** (not source dataset hash alone — exports reflect the filtered view the user sees)
+- Cache key: `hashlib.md5(df_filtered.to_json().encode()).hexdigest()` + `(rpn_min, sev9_only, tuple(sorted(process_steps)), export_type)`
+- Generate bytes only once per unique filtered view, not on every Streamlit rerender
 - Wrap both calls in `try/except` — export errors must not crash the dashboard render
 
 ### 1.4 PDF API Cleanup (`src/exporter.py`)
 
 - Remove unused `pareto_fig` / `heatmap_fig` parameters from `export_pdf()`
-- Update all call sites in `app.py` and `fmea_analyzer.py`
+- Update all call sites in `app.py`, tests, docs, and exporter docstrings/signatures (`fmea_analyzer.py` does not call `export_pdf()` today)
 - Fix page break: repeat table headers on every new page
 - Update all PDF-related documentation to reflect the clean matplotlib-only implementation
 
@@ -81,7 +85,7 @@ Files: `README.md`, `docs/FMEA_COMPLETE_GUIDE.md`, `docs/ASSUMPTIONS_LOG.md`
 
 - Use Streamlit's `AppTest` harness
 - Cover: demo dataset load, CSV upload, filter interactions, session state, export button triggers, malformed upload error handling
-- Schema boundary tests: decimal S/O/D, null `Process_Step`, null `ID`, duplicate IDs, formula-prefixed strings
+- Schema boundary tests: decimal S/O/D, null `Process_Step`, null `ID`, formula-prefixed strings (duplicate ID rejection is enforced in Phase 1 validation — these tests verify that behavior via the app layer)
 - These replace the role the misleadingly-named `test_streamlit_edge_cases.py` was supposed to fill
 
 ### 2.2 Chart Cache Key Fix (`app.py`)
@@ -115,13 +119,14 @@ Files: `README.md`, `docs/FMEA_COMPLETE_GUIDE.md`, `docs/ASSUMPTIONS_LOG.md`
 
 ### 3.1 Pydantic Schema Layer (`src/schema.py`)
 
-- Introduce `FMEARow` Pydantic model:
-  - Integer S/O/D fields with `ge=1, le=10` constraints
-  - Non-null required text fields: `ID`, `Process_Step`, `Failure_Mode`, `Potential_Effect`, `Current_Controls`
-  - Computed `RPN` property
+- Introduce `FMEARow` Pydantic model mirroring the exact existing column contract:
+  - `ID: int` — non-null, positive integer
+  - `Process_Step`, `Component`, `Function`, `Failure_Mode`, `Effect`, `Cause`, `Current_Control`: `str` — non-null
+  - `Severity`, `Occurrence`, `Detection`: `int` with `ge=1, le=10` constraints
+  - Computed `RPN` property (`Severity * Occurrence * Detection`)
 - Introduce `FMEADataset` model:
   - Wraps `list[FMEARow]`
-  - Dataset-level validation: duplicate ID detection
+  - Dataset-level validator: reject duplicate `ID` values
 - `rpn_engine.py` validation rewrites to use these models as the single source of truth
 - DataFrame-level checks become model-level checks; DataFrames remain for computation only
 - Sets foundation for future FastAPI API contract
