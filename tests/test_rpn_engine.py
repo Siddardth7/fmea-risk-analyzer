@@ -394,3 +394,46 @@ def test_bool_dtype_column_rejected():
     df["Severity"] = df["Severity"].astype(bool)
     with pytest.raises(ValueError, match="integer"):
         validate_input(df)
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Required text field and ID validation (Check 5 & Check 6)
+# ---------------------------------------------------------------------------
+
+def test_null_process_step_rejected():
+    df = _valid_df()
+    df.loc[0, "Process_Step"] = None
+    with pytest.raises(ValueError, match="Process_Step"):
+        validate_input(df)
+
+def test_null_id_rejected():
+    df = _valid_df()
+    df.loc[0, "ID"] = None
+    with pytest.raises(ValueError, match="ID"):
+        validate_input(df)
+
+def test_non_integer_id_rejected():
+    df = _valid_df()
+    df["ID"] = df["ID"].astype(object)
+    df.loc[0, "ID"] = "ABC"
+    with pytest.raises(ValueError, match="ID"):
+        validate_input(df)
+
+def test_duplicate_ids_rejected():
+    df = _valid_df()
+    df2 = _valid_df()
+    combined = pd.concat([df, df2], ignore_index=True)
+    with pytest.raises(ValueError, match="duplicate"):
+        validate_input(combined)
+
+def test_null_failure_mode_rejected():
+    df = _valid_df()
+    df.loc[0, "Failure_Mode"] = None
+    with pytest.raises(ValueError, match="Failure_Mode"):
+        validate_input(df)
+
+def test_null_effect_rejected():
+    df = _valid_df()
+    df.loc[0, "Effect"] = None
+    with pytest.raises(ValueError, match="Effect"):
+        validate_input(df)

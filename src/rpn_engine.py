@@ -37,6 +37,11 @@ REQUIRED_COLUMNS = [
 
 SCORE_COLUMNS = ["Severity", "Occurrence", "Detection"]
 
+TEXT_REQUIRED_COLUMNS = [
+    "Process_Step", "Component", "Function",
+    "Failure_Mode", "Effect", "Cause", "Current_Control",
+]
+
 SCORE_MIN = 1
 SCORE_MAX = 10
 
@@ -147,6 +152,32 @@ def validate_input(df: pd.DataFrame) -> None:
             raise ValueError(
                 f"Column '{col}' contains out-of-range values in row(s) with ID: {out_of_range}. "
                 f"Valid range is {SCORE_MIN}–{SCORE_MAX} (AIAG FMEA-4 scale)."
+            )
+
+    # --- Check 5: ID must be non-null and integer-convertible; no duplicates ---
+    if df["ID"].isnull().any():
+        raise ValueError(
+            "Column 'ID' contains null values. Every row must have a unique integer ID."
+        )
+    try:
+        df["ID"].apply(lambda x: int(x))
+    except (ValueError, TypeError):
+        raise ValueError(
+            "Column 'ID' contains non-integer values. IDs must be integers."
+        )
+    if df["ID"].duplicated().any():
+        dupes = df.loc[df["ID"].duplicated(keep=False), "ID"].unique().tolist()
+        raise ValueError(
+            f"Column 'ID' contains duplicate values: {dupes}. Each row must have a unique ID."
+        )
+
+    # --- Check 6: Required text columns must be non-null strings ---
+    for col in TEXT_REQUIRED_COLUMNS:
+        if df[col].isnull().any():
+            bad_ids = df.loc[df[col].isnull(), "ID"].tolist()
+            raise ValueError(
+                f"Column '{col}' contains null/missing values in row(s) with ID: {bad_ids}. "
+                f"This field is required for filtering and reporting."
             )
 
 
