@@ -23,6 +23,7 @@ Run with:
     python -m pytest tests/ -v
 """
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -313,3 +314,75 @@ def test_tc13_rank_by_rpn_missing_columns():
     # Deliberately skip flag_critical
     with pytest.raises(KeyError):
         rank_by_rpn(df)
+
+
+# ---------------------------------------------------------------------------
+# Integer-only S/O/D validation (Check 3b)
+# ---------------------------------------------------------------------------
+
+def _valid_df():
+    """Minimal valid FMEA DataFrame for integer-validation tests."""
+    return pd.DataFrame([{
+        "ID": 1, "Process_Step": "Stamping", "Component": "Panel",
+        "Function": "Structural support", "Failure_Mode": "Crack",
+        "Effect": "Part failure", "Severity": 8,
+        "Cause": "Over-stress", "Occurrence": 3,
+        "Current_Control": "Visual inspection", "Detection": 4,
+    }])
+
+
+def _valid_df_float_scores():
+    """Valid FMEA DataFrame with S/O/D stored as float64 dtype (numeric but not integer)."""
+    df = _valid_df()
+    for col in ("Severity", "Occurrence", "Detection"):
+        df[col] = df[col].astype(float)
+    return df
+
+
+def _valid_df_object_scores():
+    """Valid FMEA DataFrame with S/O/D stored as object dtype (allows mixed types)."""
+    df = _valid_df()
+    for col in ("Severity", "Occurrence", "Detection"):
+        df[col] = df[col].astype(object)
+    return df
+
+
+def test_float_severity_rejected():
+    """float64 Severity column (e.g. 8.5) must be rejected even when in-range."""
+    df = _valid_df_float_scores()
+    df.loc[0, "Severity"] = 8.5
+    with pytest.raises(ValueError, match="integer"):
+        validate_input(df)
+
+
+def test_float_occurrence_rejected():
+    """float64 Occurrence column (e.g. 3.2) must be rejected even when in-range."""
+    df = _valid_df_float_scores()
+    df.loc[0, "Occurrence"] = 3.2
+    with pytest.raises(ValueError, match="integer"):
+        validate_input(df)
+
+
+def test_float_detection_rejected():
+    """float64 Detection column (e.g. 4.9) must be rejected even when in-range."""
+    df = _valid_df_float_scores()
+    df.loc[0, "Detection"] = 4.9
+    with pytest.raises(ValueError, match="integer"):
+        validate_input(df)
+
+
+def test_boolean_score_rejected():
+    """Boolean Severity value (True) must be rejected — bool is a subclass of int."""
+    df = _valid_df_object_scores()
+    df.loc[0, "Severity"] = True
+    with pytest.raises(ValueError, match="integer"):
+        validate_input(df)
+
+
+def test_numeric_string_score_rejected():
+    """String '8' in a Severity column must be rejected (not numeric dtype)."""
+    df = _valid_df()
+    df["Severity"] = df["Severity"].astype(object)
+    df.loc[0, "Severity"] = "8"
+    with pytest.raises(ValueError):
+        validate_input(df)

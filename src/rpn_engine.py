@@ -14,6 +14,7 @@ See docs/ASSUMPTIONS_LOG.md for every threshold decision.
 Author: Siddardth | M.S. Aerospace Engineering, UIUC
 """
 
+import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
@@ -117,6 +118,20 @@ def validate_input(df: pd.DataFrame) -> None:
             raise ValueError(
                 f"Column '{col}' must contain numeric values (integers 1–10). "
                 f"Got dtype: {df[col].dtype}"
+            )
+
+    # --- Check 3b: S/O/D must be strict integers (no floats, no booleans) ---
+    for col in SCORE_COLUMNS:
+        def _is_strict_int(x):
+            if isinstance(x, bool):
+                return False
+            return isinstance(x, (int, np.integer))
+        if not df[col].apply(_is_strict_int).all():
+            bad_ids = df.loc[~df[col].apply(_is_strict_int), "ID"].tolist()
+            raise ValueError(
+                f"Column '{col}' must contain integer values only (1–10). "
+                f"Floats and booleans are not valid FMEA scores. "
+                f"Affected row ID(s): {bad_ids}"
             )
 
     # --- Check 4: S/O/D values must be integers in [1, 10] ---
