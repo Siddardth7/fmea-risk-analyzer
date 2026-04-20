@@ -276,7 +276,7 @@ FMEA File    ──────►  Calculate RPN (S × O × D)    ──►  Co
 │  │                  │  │  --charts    │  │                      │  │   │
 │  │ visualizer.py    │  │              │  │ openpyxl workbook    │  │   │
 │  │  pareto_chart()  │  │  ANSI color  │  │ fpdf2 PDF            │  │   │
-│  │  risk_heatmap()  │  │  table       │  │ kaleido PNG render   │  │   │
+│  │  risk_heatmap()  │  │  table       │  │ matplotlib PNG       │  │   │
 │  └──────────────────┘  └──────────────┘  └──────────────────────┘  │   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -339,8 +339,8 @@ Step 8: EXPORT (exporter.py)
     Sheet 2 "Metadata": timestamp, counts, AIAG reference
   PDF: fpdf2 builds 3-page A4 landscape
     Page 1: Summary metrics + full table
-    Page 2: Pareto chart (rendered from Plotly via kaleido)
-    Page 3: Risk heatmap
+    Page 2: Pareto chart (rendered from matplotlib)
+    Page 3: Risk heatmap (rendered from matplotlib)
 ```
 
 ### Integrations and External Services
@@ -570,7 +570,7 @@ Same two charts (Pareto + heatmap) built with matplotlib for static PNG output. 
 
 Two functions:
 - `export_excel(df)` → bytes — openpyxl workbook with PatternFill color coding
-- `export_pdf(df, pareto_fig, heatmap_fig)` → bytes — fpdf2 PDF; Plotly figures rendered to PNG via kaleido and embedded
+- `export_pdf(df)` → bytes — fpdf2 PDF with matplotlib-rendered charts
 
 Both return raw `bytes` objects plugged directly into Streamlit's `st.download_button()`.
 
@@ -598,7 +598,7 @@ rpn_engine.run_pipeline(df)      ← returns fully analyzed DataFrame
       │
       └──► On download button click:
                ├──► exporter.export_excel(df_filtered)
-               └──► exporter.export_pdf(df_filtered, pareto_fig, heatmap_fig)
+               └──► exporter.export_pdf(df_filtered)
 ```
 
 ---
@@ -693,8 +693,8 @@ Auto-expands when critical items exist.
 **Output:** `fmea_report.pdf` — A4 landscape, 3 pages:
 
 - **Page 1:** Header bar, summary metrics row, full ranked table with color coding
-- **Page 2:** Pareto chart (rendered from the live Plotly figure)
-- **Page 3:** Risk heatmap (rendered from the live Plotly figure)
+- **Page 2:** Pareto chart (static image, matplotlib)
+- **Page 3:** Risk heatmap (static image, matplotlib)
 
 PDF is disabled if the filtered table is empty (no data to export).
 
@@ -813,7 +813,6 @@ pandas==3.0.*
 numpy==2.4.*
 openpyxl==3.1.*
 fpdf2==2.8.*
-kaleido==1.2.*
 matplotlib==3.10.*
 ```
 
@@ -1009,7 +1008,7 @@ A: FMEA datasets are small by nature — typically 30–200 rows. Pandas handles
 A: `visualizer.py` uses matplotlib for the CLI tool — matplotlib produces static PNG files, which is what the `--charts` flag needs. `plotly_charts.py` uses Plotly for the Streamlit app — Plotly produces interactive HTML-based charts with hover tooltips that Streamlit can render natively. The two serve different output formats and can't share implementations.
 
 **Q: How does the PDF export work?**  
-A: The `fpdf2` library generates the PDF structure (text, tables, layout). For the chart pages, Plotly figures are rendered to PNG using `kaleido` (a headless Chrome-based renderer), written to a temp file, embedded as images in the PDF, then the temp file is deleted. The final PDF is returned as bytes streamed directly to the browser.
+A: The `fpdf2` library generates the PDF structure (text, tables, layout). For the chart pages, matplotlib renders the Pareto chart and risk heatmap to PNG images, written to temporary files, embedded as images in the PDF, then the temp files are deleted. The final PDF is returned as bytes streamed directly to the browser.
 
 **Q: What happens if a user uploads a malformed file?**  
 A: `validate_input()` catches four categories of errors before any calculation runs: empty files, missing columns, null values in S/O/D, and out-of-range values. Each raises a `ValueError` with a specific message that identifies the problem (e.g., "Column 'Severity' contains null values in rows with ID: [3, 7, 12]"). The Streamlit UI displays this as a red error banner.
