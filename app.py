@@ -443,7 +443,7 @@ def _export_cache_key(
     export_type: str,
 ) -> tuple:
     """Stable cache key for export bytes — includes filtered data hash and all filter state."""
-    df_hash = hashlib.md5(df.to_json().encode()).hexdigest()
+    df_hash = hashlib.md5(df.reset_index(drop=True).to_json().encode()).hexdigest()
     return (df_hash, rpn_min, sev9_only, tuple(sorted(process_steps)), export_type)
 
 
