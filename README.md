@@ -304,10 +304,10 @@ fmea-risk-analyzer/
 │   └── exporter.py                     # Excel (openpyxl) + PDF (fpdf2) export
 │
 ├── tests/
-│   ├── test_rpn_engine.py              # 13 tests — RPN calculation + flagging logic
-│   ├── test_visualizer.py              # 16 tests — matplotlib chart functions
-│   ├── test_streamlit_edge_cases.py    # 20 tests — edge cases (empty, malformed, all-green)
-│   └── test_exporter.py               # 12 tests — Excel workbook + PDF output
+│   ├── test_rpn_engine.py              # RPN calculation + flagging logic
+│   ├── test_visualizer.py              # matplotlib chart functions
+│   ├── test_streamlit_edge_cases.py    # edge cases (empty, malformed, all-green)
+│   └── test_exporter.py                # Excel workbook + PDF output
 │
 ├── data/
 │   ├── composite_panel_fmea_demo.csv   # 30-row aerospace composite panel PFMEA dataset

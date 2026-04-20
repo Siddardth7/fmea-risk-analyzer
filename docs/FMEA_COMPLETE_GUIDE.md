@@ -224,7 +224,7 @@ FMEA File    ──────►  Calculate RPN (S × O × D)    ──►  Co
 
 1. **Standards-grounded:** Every threshold (RPN > 100, Severity ≥ 9, Action Priority H) is sourced from AIAG FMEA-4 and documented in `docs/ASSUMPTIONS_LOG.md` with citations. Note: `Flag_Action_Priority_H` uses a threshold simplification (`RPN >= 200 OR Severity >= 9`), not the full 2019 AIAG/VDA Action Priority lookup table.
 
-2. **Demo-quality implementation:** 78 unit tests, validated against the AIAG standard, clean architecture with separated concerns (engine / visualization / export / UI).
+2. **Portfolio implementation with production practices:** 78 unit tests, validated against the AIAG standard, clean architecture with separated concerns (engine / visualization / export / UI).
 
 3. **Immediately deployable:** Runs as a web app at a public URL. No installation. No license. No login.
 
@@ -489,10 +489,10 @@ fmea-risk-analyzer/
 │   └── exporter.py                  # Excel (openpyxl) + PDF (fpdf2) export
 │
 ├── tests/                           # pytest test suite (78 tests)
-│   ├── test_rpn_engine.py           # 13 tests: RPN math, flagging, ranking
-│   ├── test_visualizer.py           # 16 tests: chart function coverage
-│   ├── test_streamlit_edge_cases.py # 20 tests: edge cases (empty, malformed)
-│   └── test_exporter.py             # 12 tests: Excel/PDF output validation
+│   ├── test_rpn_engine.py           # RPN math, flagging, ranking
+│   ├── test_visualizer.py           # chart function coverage
+│   ├── test_streamlit_edge_cases.py # edge cases (empty, malformed)
+│   └── test_exporter.py             # Excel/PDF output validation
 │
 ├── data/
 │   ├── composite_panel_fmea_demo.csv  # 30-row aerospace FMEA demo
@@ -617,7 +617,7 @@ rpn_engine.run_pipeline(df)      ← returns fully analyzed DataFrame
 ### Feature 2 — Demo Dataset
 
 **Location:** "Use Demo Dataset" button in sidebar  
-**What it loads:** `data/composite_panel_fmea_demo.csv` — 30 failure modes from a carbon fiber composite panel manufacturing process across 6 process steps (Prepreg Layup, Vacuum Bagging, Autoclave Cure, Demolding, Non-Destructive Inspection, Assembly).
+**What it loads:** `data/composite_panel_fmea_demo.csv` — 30 failure modes from a carbon fiber composite panel manufacturing process across 11 process steps.
 
 **Why it's useful:** Lets anyone explore the tool without having an FMEA file ready. Produces a realistic risk distribution (Red=19, Yellow=9, Green=2) useful for exploring all tool features.
 
@@ -748,7 +748,7 @@ Click "Download Excel" for a formatted workbook to share with your team. Click "
 
 ### Complete Example: Composite Panel Aerospace FMEA
 
-**Context:** You are the quality engineer for a composite panel manufacturing line producing CFRP parts for an aircraft interior. The process has 6 steps and 30 identified failure modes.
+**Context:** You are the quality engineer for a composite panel manufacturing line producing CFRP parts for an aircraft interior. The process has 11 steps and 30 identified failure modes.
 
 **Input:** Load the demo dataset (`data/composite_panel_fmea_demo.csv`).
 
