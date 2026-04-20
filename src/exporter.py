@@ -54,6 +54,7 @@ _COL_WIDTHS = {
 
 _TOOL_VERSION = "1.0.0"
 
+# The escape character (apostrophe) must NOT be added here — it would cause double-escaping on repeated calls.
 _FORMULA_PREFIXES = ("=", "+", "-", "@")
 
 
