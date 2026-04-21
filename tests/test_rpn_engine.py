@@ -453,3 +453,55 @@ def test_null_effect_rejected():
     df.loc[0, "Effect"] = None
     with pytest.raises(ValueError, match="Effect"):
         validate_input(df)
+
+
+# ---------------------------------------------------------------------------
+# Task 11: Pydantic v2 schema layer tests
+# ---------------------------------------------------------------------------
+
+from src.schema import FMEARow, FMEADataset
+import pydantic
+
+
+def test_fmea_row_valid():
+    row = FMEARow(
+        ID=1, Process_Step="Stamping", Component="Panel",
+        Function="Structural support", Failure_Mode="Crack",
+        Effect="Part failure", Severity=8,
+        Cause="Over-stress", Occurrence=3,
+        Current_Control="Visual inspection", Detection=4,
+    )
+    assert row.RPN == 96
+
+
+def test_fmea_row_rejects_float_severity():
+    with pytest.raises(pydantic.ValidationError):
+        FMEARow(
+            ID=1, Process_Step="Stamping", Component="Panel",
+            Function="Structural support", Failure_Mode="Crack",
+            Effect="Part failure", Severity=8.5,
+            Cause="Over-stress", Occurrence=3,
+            Current_Control="Visual inspection", Detection=4,
+        )
+
+
+def test_fmea_row_rejects_out_of_range():
+    with pytest.raises(pydantic.ValidationError):
+        FMEARow(
+            ID=1, Process_Step="Stamping", Component="Panel",
+            Function="Structural support", Failure_Mode="Crack",
+            Effect="Part failure", Severity=11,
+            Cause="Over-stress", Occurrence=3,
+            Current_Control="Visual inspection", Detection=4,
+        )
+
+
+def test_fmea_dataset_rejects_duplicate_ids():
+    row1 = FMEARow(ID=1, Process_Step="Stamping", Component="Panel", Function="F",
+                   Failure_Mode="Crack", Effect="E", Severity=8, Cause="C",
+                   Occurrence=3, Current_Control="Ctrl", Detection=4)
+    row2 = FMEARow(ID=1, Process_Step="Welding", Component="Bracket", Function="F",
+                   Failure_Mode="Warp", Effect="E", Severity=5, Cause="C",
+                   Occurrence=2, Current_Control="Ctrl", Detection=3)
+    with pytest.raises(pydantic.ValidationError, match="duplicate"):
+        FMEADataset(rows=[row1, row2])

@@ -78,15 +78,14 @@ def _is_strict_int(x: object) -> bool:
 def validate_input(df: pd.DataFrame) -> None:
     """
     Validate an FMEA input DataFrame against the required schema.
+    Delegates to Pydantic FMEARow/FMEADataset models as the source of truth.
+    Raises ValueError (not pydantic.ValidationError) to preserve the public interface.
 
     Checks performed:
       1. DataFrame is not empty (≥ 1 row)
       2. All required columns are present
-      3. S/O/D columns contain numeric values (no strings, no NaN)
-      3b. S/O/D values are strict integers — booleans and floats are rejected
-      4. S/O/D values are in the range [1, 10]
-      5. ID column is non-null, strict integer (no floats, no booleans), and unique
-      6. Required text columns are non-null strings
+      3–6. Delegated to Pydantic: S/O/D strict integer type, range [1,10],
+           ID non-null/integer/unique, required text fields non-null.
 
     Parameters
     ----------
@@ -125,65 +124,36 @@ def validate_input(df: pd.DataFrame) -> None:
             f"Expected columns: {REQUIRED_COLUMNS}"
         )
 
-    # --- Check 3: S/O/D must be numeric (no NaN, no strings) ---
-    for col in SCORE_COLUMNS:
-        if df[col].isnull().any():
-            null_ids = df.loc[df[col].isnull(), "ID"].tolist()
-            raise ValueError(
-                f"Column '{col}' contains null/missing values in row(s) with ID: {null_ids}. "
-                f"All S/O/D scores are required."
-            )
-        if not pd.api.types.is_numeric_dtype(df[col]):
-            raise ValueError(
-                f"Column '{col}' must contain numeric values (integers 1–10). "
-                f"Got dtype: {df[col].dtype}"
-            )
+    # --- Pydantic validation (Checks 3–6) ---
+    import pydantic as _pydantic
+    from src.schema import FMEARow, FMEADataset
 
-    # --- Check 3b: S/O/D must be strict integers (no floats, no booleans) ---
-    for col in SCORE_COLUMNS:
-        mask = df[col].apply(_is_strict_int)
-        if not mask.all():
-            bad_ids = df.loc[~mask, "ID"].tolist()
-            raise ValueError(
-                f"Column '{col}' must contain integer values only (1–10). "
-                f"Floats and booleans are not valid FMEA scores. "
-                f"Affected row ID(s): {bad_ids}"
-            )
+    # Range-violation field names (Severity, Occurrence, Detection)
+    _RANGE_FIELDS = {"severity", "occurrence", "detection"}
 
-    # --- Check 4: S/O/D values must be integers in [1, 10] ---
-    for col in SCORE_COLUMNS:
-        out_of_range = df.loc[
-            (df[col] < SCORE_MIN) | (df[col] > SCORE_MAX), "ID"
-        ].tolist()
-        if out_of_range:
+    try:
+        rows = [FMEARow(**row) for row in df[REQUIRED_COLUMNS].to_dict(orient="records")]
+        FMEADataset(rows=rows)
+    except _pydantic.ValidationError as exc:
+        first = exc.errors()[0]
+        field = " -> ".join(str(loc) for loc in first["loc"])
+        msg = first["msg"]
+        # Detect range violations for S/O/D — Pydantic says "less than or equal to"
+        # or "greater than or equal to"; we must preserve "out-of-range" in message
+        # so existing tests that match on that string keep passing.
+        field_lower = field.lower().split(" -> ")[-1]
+        if field_lower in _RANGE_FIELDS and (
+            "less than or equal" in msg or "greater than or equal" in msg
+        ):
             raise ValueError(
-                f"Column '{col}' contains out-of-range values in row(s) with ID: {out_of_range}. "
-                f"Valid range is {SCORE_MIN}–{SCORE_MAX} (AIAG FMEA-4 scale)."
-            )
-
-    # --- Check 5: ID must be non-null and strict integer; no duplicates ---
-    if df["ID"].isnull().any():
+                f"Column '{field}' contains out-of-range values. "
+                f"Valid range is {SCORE_MIN}–{SCORE_MAX} (AIAG FMEA-4 scale). "
+                f"Check your data against the template at data/fmea_input_template.csv."
+            ) from exc
         raise ValueError(
-            "Column 'ID' contains null values. Every row must have a unique integer ID."
-        )
-    if not df["ID"].apply(_is_strict_int).all():
-        raise ValueError(
-            "Column 'ID' contains non-integer values. IDs must be integers (no floats, no strings, no booleans)."
-        )
-    if df["ID"].duplicated().any():
-        dupes = df.loc[df["ID"].duplicated(keep=False), "ID"].unique().tolist()
-        raise ValueError(
-            f"Column 'ID' contains duplicate values: {dupes}. Each row must have a unique ID."
-        )
-
-    # --- Check 6: Required text columns must be non-null strings ---
-    for col in TEXT_REQUIRED_COLUMNS:
-        if df[col].isnull().any():
-            bad_ids = df.loc[df[col].isnull(), "ID"].tolist()
-            raise ValueError(
-                f"Column '{col}' contains null/missing values in row(s) with ID: {bad_ids}. "
-                f"This field is required for filtering and reporting."
-            )
+            f"Validation error in column '{field}': {msg}. "
+            f"Check your data against the template at data/fmea_input_template.csv."
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
