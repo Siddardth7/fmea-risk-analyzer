@@ -68,6 +68,18 @@ def _sanitize_for_export(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def export_csv(df: pd.DataFrame) -> bytes:
+    """
+    Export the analyzed FMEA DataFrame to UTF-8 CSV with formula-injection escaping.
+
+    Returns
+    -------
+    bytes
+        Raw UTF-8 encoded CSV bytes suitable for st.download_button().
+    """
+    return _sanitize_for_export(df).to_csv(index=False).encode("utf-8")
+
+
 # PDF layout constants
 _PDF_TIER_RGB = {
     "Red":    (252, 228, 228),

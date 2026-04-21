@@ -3,10 +3,10 @@ ui/exports.py
 Export button rendering with lazy caching and error isolation.
 """
 from __future__ import annotations
-import hashlib
 import streamlit as st
 import pandas as pd
-from src.exporter import export_excel, export_pdf, _sanitize_for_export
+from ui import df_content_hash
+from src.exporter import export_excel, export_pdf, export_csv
 
 
 def _export_cache_key(
@@ -16,14 +16,12 @@ def _export_cache_key(
     process_steps: list[str],
     export_type: str,
 ) -> tuple:
-    df_hash = hashlib.md5(df.reset_index(drop=True).to_json().encode()).hexdigest()
+    df_hash = df_content_hash(df)
     return (df_hash, rpn_min, sev9_only, tuple(sorted(process_steps)), export_type)
 
 
 def render_export_buttons(
     df: pd.DataFrame,
-    pareto_fig,
-    heatmap_fig,
     rpn_min: int,
     sev9_only: bool,
     process_steps: list[str],
@@ -58,7 +56,7 @@ def render_export_buttons(
     pdf_key = _export_cache_key(df, rpn_min, sev9_only, process_steps, "pdf")
     if st.session_state.get("_pdf_cache_key") != pdf_key:
         try:
-            pdf_data = export_pdf(df) if (pareto_fig is not None and heatmap_fig is not None) else None
+            pdf_data = export_pdf(df) if not df.empty else None
             st.session_state["_pdf_bytes"] = pdf_data
             st.session_state["_pdf_cache_key"] = pdf_key
         except Exception as exc:
@@ -82,7 +80,7 @@ def render_export_buttons(
     with col_csv:
         st.download_button(
             label="📋  Download CSV",
-            data=_sanitize_for_export(df).to_csv(index=False).encode("utf-8"),
+            data=export_csv(df),
             file_name="fmea_analysis.csv",
             mime="text/csv",
             use_container_width=True,

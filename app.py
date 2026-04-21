@@ -552,7 +552,7 @@ def main() -> None:
         render_critical_panel(df_filtered)
 
     st.divider()
-    render_export_buttons(df_filtered, pareto_fig, heatmap_fig, rpn_min, sev9_only, process_steps)
+    render_export_buttons(df_filtered, rpn_min, sev9_only, process_steps)
 
 
 if __name__ == "__main__":
