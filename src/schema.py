@@ -11,17 +11,28 @@ import pydantic
 class FMEARow(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(strict=True)
 
-    ID: int = pydantic.Field(gt=0)
-    Process_Step: str = pydantic.Field(min_length=1)
-    Component: str = pydantic.Field(min_length=1)
-    Function: str = pydantic.Field(min_length=1)
-    Failure_Mode: str = pydantic.Field(min_length=1)
-    Effect: str = pydantic.Field(min_length=1)
-    Severity: Annotated[int, pydantic.Field(ge=1, le=10)]
-    Cause: str = pydantic.Field(min_length=1)
-    Occurrence: Annotated[int, pydantic.Field(ge=1, le=10)]
-    Current_Control: str = pydantic.Field(min_length=1)
-    Detection: Annotated[int, pydantic.Field(ge=1, le=10)]
+    ID:              Annotated[int, pydantic.Field(gt=0)]
+    Process_Step:    Annotated[str, pydantic.Field(min_length=1)]
+    Component:       Annotated[str, pydantic.Field(min_length=1)]
+    Function:        Annotated[str, pydantic.Field(min_length=1)]
+    Failure_Mode:    Annotated[str, pydantic.Field(min_length=1)]
+    Effect:          Annotated[str, pydantic.Field(min_length=1)]
+    Severity:        Annotated[int, pydantic.Field(ge=1, le=10)]
+    Cause:           Annotated[str, pydantic.Field(min_length=1)]
+    Occurrence:      Annotated[int, pydantic.Field(ge=1, le=10)]
+    Current_Control: Annotated[str, pydantic.Field(min_length=1)]
+    Detection:       Annotated[int, pydantic.Field(ge=1, le=10)]
+
+    @pydantic.field_validator(
+        "Process_Step", "Component", "Function",
+        "Failure_Mode", "Effect", "Cause", "Current_Control",
+        mode="before",
+    )
+    @classmethod
+    def reject_blank(cls, v: object) -> object:
+        if isinstance(v, str) and not v.strip():
+            raise ValueError("field must not be blank or whitespace-only")
+        return v
 
     @property
     def RPN(self) -> int:
@@ -35,7 +46,12 @@ class FMEADataset(pydantic.BaseModel):
     def check_no_duplicate_ids(self) -> "FMEADataset":
         ids = [row.ID for row in self.rows]
         seen: set[int] = set()
-        dupes = [i for i in ids if i in seen or seen.add(i)]  # type: ignore[func-returns-value]
+        dupes: list[int] = []
+        for i in ids:
+            if i in seen:
+                dupes.append(i)
+            else:
+                seen.add(i)
         if dupes:
             raise ValueError(f"duplicate IDs found: {dupes}")
         return self

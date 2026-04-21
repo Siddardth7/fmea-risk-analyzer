@@ -16,6 +16,8 @@ Author: Siddardth | M.S. Aerospace Engineering, UIUC
 
 import numpy as np
 import pandas as pd
+import pydantic as _pydantic
+from src.schema import FMEARow, FMEADataset
 
 # ---------------------------------------------------------------------------
 # Constants — all thresholds sourced from ASSUMPTIONS_LOG.md
@@ -37,11 +39,6 @@ REQUIRED_COLUMNS = [
 
 SCORE_COLUMNS = ["Severity", "Occurrence", "Detection"]
 
-TEXT_REQUIRED_COLUMNS = [
-    "Process_Step", "Component", "Function",
-    "Failure_Mode", "Effect", "Cause", "Current_Control",
-]
-
 SCORE_MIN = 1
 SCORE_MAX = 10
 
@@ -58,17 +55,6 @@ RPN_ACTION_PRIORITY_H_THRESHOLD = 200
 RPN_RED_THRESHOLD = 100     # RPN > 100 OR Severity ≥ 9 → Red
 RPN_YELLOW_MIN = 50         # RPN 50–100 AND Severity < 9 → Yellow
                             # RPN < 50  AND Severity < 9 → Green
-
-
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
-
-def _is_strict_int(x: object) -> bool:
-    """Return True only for strict integers — not booleans, not floats."""
-    if isinstance(x, bool):
-        return False
-    return isinstance(x, (int, np.integer))
 
 
 # ---------------------------------------------------------------------------
@@ -125,9 +111,6 @@ def validate_input(df: pd.DataFrame) -> None:
         )
 
     # --- Pydantic validation (Checks 3–6) ---
-    import pydantic as _pydantic
-    from src.schema import FMEARow, FMEADataset
-
     # Range-violation field names (Severity, Occurrence, Detection)
     _RANGE_FIELDS = {"severity", "occurrence", "detection"}
 
@@ -136,7 +119,7 @@ def validate_input(df: pd.DataFrame) -> None:
         FMEADataset(rows=rows)
     except _pydantic.ValidationError as exc:
         first = exc.errors()[0]
-        field = " -> ".join(str(loc) for loc in first["loc"])
+        field = " -> ".join(str(loc) for loc in first["loc"]) or "<dataset>"
         msg = first["msg"]
         # Detect range violations for S/O/D — Pydantic says "less than or equal to"
         # or "greater than or equal to"; we must preserve "out-of-range" in message
