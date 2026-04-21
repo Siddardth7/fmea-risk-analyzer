@@ -384,11 +384,22 @@ Severity, Occurrence, and Detection scores are calibrated to reflect realistic a
 
 ## 13. Running Tests
 
-Test dependencies (`pytest`) are in `requirements-dev.txt`:
+Install dev dependencies first:
 
 ```bash
 pip install -r requirements-dev.txt
-python3 -m pytest tests/ -v
+```
+
+Run the full test suite:
+
+```bash
+pytest -q
+```
+
+Run with coverage:
+
+```bash
+pytest --cov=src --cov-report=term-missing
 ```
 
 ```
@@ -396,8 +407,9 @@ tests/test_rpn_engine.py              passed
 tests/test_streamlit_edge_cases.py    passed
 tests/test_visualizer.py              passed
 tests/test_exporter.py                passed
+tests/test_app_integration.py         passed
 ------------------------------------------------
-78 passed
+78+ passed
 ```
 
 Every threshold decision (RPN > 100, Severity ≥ 9, Action Priority H thresholds) has a corresponding test that verifies the correct row is flagged or not flagged. See `docs/ASSUMPTIONS_LOG.md` for the source citations behind each decision.
