@@ -3,38 +3,18 @@ App-level integration tests using Streamlit's AppTest harness.
 These tests exercise the full app surface: upload, filters, exports, and error handling.
 """
 import io
-import pytest
+from pathlib import Path
+
 import pandas as pd
+import pytest
 from streamlit.testing.v1 import AppTest
 
-
-@pytest.fixture
-def valid_csv_bytes():
-    df = pd.DataFrame([{
-        "ID": 1, "Process_Step": "Stamping", "Component": "Panel",
-        "Function": "Structural support", "Failure_Mode": "Crack",
-        "Effect": "Part failure", "Severity": 8,
-        "Cause": "Over-stress", "Occurrence": 3,
-        "Current_Control": "Visual inspection", "Detection": 4,
-    }])
-    return df.to_csv(index=False).encode("utf-8")
-
-
-@pytest.fixture
-def float_score_csv_bytes():
-    df = pd.DataFrame([{
-        "ID": 1, "Process_Step": "Stamping", "Component": "Panel",
-        "Function": "Structural support", "Failure_Mode": "Crack",
-        "Effect": "Part failure", "Severity": 8.5,
-        "Cause": "Over-stress", "Occurrence": 3,
-        "Current_Control": "Visual inspection", "Detection": 4,
-    }])
-    return df.to_csv(index=False).encode("utf-8")
+APP_PY = str(Path(__file__).parent.parent / "app.py")
 
 
 def test_demo_dataset_loads():
     """Demo dataset button loads successfully and renders metrics."""
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file(APP_PY).run()
     at.session_state["use_demo"] = True
     at = at.run()
     assert len(at.error) == 0
@@ -42,7 +22,7 @@ def test_demo_dataset_loads():
 
 def test_demo_renders_without_exception():
     """Full demo path runs without raising an exception."""
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file(APP_PY).run()
     at.session_state["use_demo"] = True
     at = at.run(timeout=30)
     assert not at.exception
