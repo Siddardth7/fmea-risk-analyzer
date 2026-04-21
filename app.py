@@ -216,10 +216,14 @@ def render_sidebar():
     st.sidebar.divider()
     st.sidebar.subheader("🔧  Filters")
 
+    _rpn_max = int(st.session_state.get("_dataset_rpn_max", 1000))
     rpn_min = st.sidebar.slider(
         "Minimum RPN",
-        min_value=0, max_value=300, value=0, step=10,
-        help="Show only failure modes with RPN ≥ this value",
+        min_value=0,
+        max_value=max(_rpn_max, 10),
+        value=min(st.session_state.get("rpn_slider", 0), _rpn_max),
+        step=10,
+        help="Show only failure modes with RPN ≥ this value (max reflects your dataset)",
         key="rpn_slider",
     )
     sev9_only = st.sidebar.toggle(
@@ -568,6 +572,41 @@ Each factor is scored 1–10 per AIAG FMEA-4:
 
 
 # ---------------------------------------------------------------------------
+# Validation summary panel
+# ---------------------------------------------------------------------------
+
+def render_validation_summary(df: pd.DataFrame) -> None:
+    """Show a compact dataset health panel immediately after upload."""
+    score_cols = ["Severity", "Occurrence", "Detection"]
+    text_cols  = ["Failure_Mode", "Effect", "Cause"]
+    warnings: list[str] = []
+
+    for col in score_cols:
+        if col in df.columns:
+            if (df[col] == 10).sum() > 0:
+                warnings.append(f"{int((df[col] == 10).sum())} row(s) have {col} = 10 (maximum score)")
+            if (df[col] == 1).sum() > 0:
+                warnings.append(f"{int((df[col] == 1).sum())} row(s) have {col} = 1 (minimum score)")
+
+    for col in text_cols:
+        if col in df.columns:
+            long = int((df[col].str.len() > 120).sum())
+            if long > 0:
+                warnings.append(f"{long} row(s) have long '{col}' text (>120 chars — may truncate in PDF)")
+
+    with st.expander("📋  Dataset Health", expanded=True):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Rows loaded",      len(df))
+        c2.metric("Columns present",  len(df.columns))
+        c3.metric("Warnings",         len(warnings))
+        if warnings:
+            for w in warnings:
+                st.caption(f"⚠️ {w}")
+        else:
+            st.caption("✅ No data quality warnings detected.")
+
+
+# ---------------------------------------------------------------------------
 # App entry point
 # ---------------------------------------------------------------------------
 
@@ -596,9 +635,12 @@ def main() -> None:
     # --- Pipeline ---
     try:
         df_analyzed = run_pipeline(raw_df)
+        st.session_state["_dataset_rpn_max"] = int(df_analyzed["RPN"].max())
     except (ValueError, KeyError) as exc:
         st.error(f"**Pipeline error:** {exc}")
         st.stop()
+
+    render_validation_summary(df_analyzed)
 
     # --- Process step filter (sidebar, needs data first) ---
     process_steps = render_process_filter(df_analyzed)
@@ -614,7 +656,8 @@ def main() -> None:
     df_filtered = _apply_filters(df_analyzed, rpn_min, sev9_only, process_steps)
 
     # --- Build / cache charts ---
-    _cache_key = (rpn_min, sev9_only, tuple(sorted(process_steps)), len(df_filtered), dark)
+    _df_hash = hashlib.md5(df_filtered.reset_index(drop=True).to_json().encode()).hexdigest()
+    _cache_key = (_df_hash, rpn_min, sev9_only, tuple(sorted(process_steps)), dark)
     if st.session_state.get("_chart_cache_key") != _cache_key or "pareto_fig" not in st.session_state:
         if not df_filtered.empty:
             st.session_state["pareto_fig"]  = pareto_chart_plotly(df_filtered, dark=dark)

@@ -272,6 +272,16 @@ def _flag_str(row: pd.Series) -> str:
     return ", ".join(parts) if parts else "-"
 
 
+def _pdf_table_header(pdf: Any) -> None:
+    """Render the FMEA table header row — called once per page."""
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_fill_color(44, 62, 80)
+    pdf.set_text_color(255, 255, 255)
+    for col_label, col_w in _PDF_TABLE_COLS:
+        pdf.cell(col_w, 7, col_label, border=1, align="C", fill=True)
+    pdf.ln()
+
+
 def _pdf_page1(pdf: Any, df: pd.DataFrame) -> None:
     pdf.add_page()
 
@@ -318,20 +328,21 @@ def _pdf_page1(pdf: Any, df: pd.DataFrame) -> None:
         pdf.cell(cell_w, 8, str(value), border=1, align="C", fill=False)
     pdf.ln(5)
 
-    # Table header
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_fill_color(44, 62, 80)
-    pdf.set_text_color(255, 255, 255)
-    for col_label, col_w in _PDF_TABLE_COLS:
-        pdf.cell(col_w, 7, col_label, border=1, align="C", fill=True)
-    pdf.ln()
+    _pdf_table_header(pdf)
 
     # Data rows
     df2 = df.copy()
     df2["_flags"] = df2.apply(_flag_str, axis=1)
     pdf.set_font("Helvetica", "", 7)
 
+    _ROW_H = 6
     for _, row in df2.iterrows():
+        # Page-break guard: repeat header when less than 2 rows of space remain
+        if pdf.get_y() + _ROW_H * 2 > pdf.h - pdf.b_margin:
+            pdf.add_page()
+            _pdf_table_header(pdf)
+            pdf.set_font("Helvetica", "", 7)
+
         tier = str(row.get("Risk_Tier", "Green"))
         r, g, b = _PDF_TIER_RGB.get(tier, (255, 255, 255))
         pdf.set_fill_color(r, g, b)
@@ -349,7 +360,7 @@ def _pdf_page1(pdf: Any, df: pd.DataFrame) -> None:
             _safe_text(str(row.get("_flags", "-"))[:38]),
         ]
         for (_, col_w), val in zip(_PDF_TABLE_COLS, values):
-            pdf.cell(col_w, 6, val, border=1,
+            pdf.cell(col_w, _ROW_H, val, border=1,
                      align="C" if col_w <= 16 else "L", fill=True)
         pdf.ln()
 
