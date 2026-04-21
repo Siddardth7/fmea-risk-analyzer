@@ -6,20 +6,18 @@ Author: Siddardth | M.S. Aerospace Engineering, UIUC
 Engineering reference: AIAG FMEA-4 + AIAG/VDA FMEA Handbook (5th Ed., 2019)
 """
 
-import hashlib
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
 from src.rpn_engine import (
-    RPN_HIGH_THRESHOLD,
-    SEVERITY_HIGH_THRESHOLD,
     run_pipeline,
     validate_input,
 )
-from src.plotly_charts import pareto_chart_plotly, risk_heatmap_plotly
-from src.exporter import export_excel, export_pdf, _sanitize_for_export
+from ui.filters import render_rpn_slider, render_severity_toggle, render_process_filter, apply_filters
+from ui.charts import get_or_build_charts
+from ui.exports import render_export_buttons
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -144,20 +142,6 @@ def _style_table(df: pd.DataFrame, dark: bool) -> pd.io.formats.style.Styler:
     return df[available].style.apply(row_style, axis=1)
 
 
-def _apply_filters(
-    df: pd.DataFrame,
-    rpn_min: int,
-    sev9_only: bool,
-    process_steps: list,
-) -> pd.DataFrame:
-    mask = df["RPN"] >= rpn_min
-    if sev9_only:
-        mask = mask & (df["Severity"] >= SEVERITY_HIGH_THRESHOLD)
-    if process_steps:
-        mask = mask & df["Process_Step"].isin(process_steps)
-    return df[mask].reset_index(drop=True)
-
-
 # ---------------------------------------------------------------------------
 # Sidebar
 # ---------------------------------------------------------------------------
@@ -216,39 +200,10 @@ def render_sidebar():
     st.sidebar.divider()
     st.sidebar.subheader("🔧  Filters")
 
-    _rpn_max = int(st.session_state.get("_dataset_rpn_max", 1000))
-    rpn_min = st.sidebar.slider(
-        "Minimum RPN",
-        min_value=0,
-        max_value=max(_rpn_max, 10),
-        value=min(st.session_state.get("rpn_slider", 0), _rpn_max),
-        step=10,
-        help="Show only failure modes with RPN ≥ this value (max reflects your dataset)",
-        key="rpn_slider",
-    )
-    sev9_only = st.sidebar.toggle(
-        "Severity ≥ 9 only",
-        value=False,
-        help="Show only safety-critical failure modes",
-        key="sev9_toggle",
-    )
+    rpn_min = render_rpn_slider()
+    sev9_only = render_severity_toggle()
 
     return raw_df, rpn_min, sev9_only, dark
-
-
-def render_process_filter(df: pd.DataFrame) -> list:
-    """Render process step multiselect in sidebar after data is loaded."""
-    st.sidebar.divider()
-    st.sidebar.subheader("📍  Process Steps")
-    all_steps = sorted(df["Process_Step"].unique().tolist())
-    selected = st.sidebar.multiselect(
-        "Show steps",
-        options=all_steps,
-        default=all_steps,
-        key="process_steps",
-        help="Filter to specific manufacturing process steps",
-    )
-    return selected if selected else all_steps
 
 
 # ---------------------------------------------------------------------------
@@ -436,92 +391,6 @@ def render_critical_panel(df: pd.DataFrame) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Export
-# ---------------------------------------------------------------------------
-
-def _export_cache_key(
-    df: pd.DataFrame,
-    rpn_min: int,
-    sev9_only: bool,
-    process_steps: list,
-    export_type: str,
-) -> tuple:
-    """Stable cache key for export bytes — includes filtered data hash and all filter state."""
-    df_hash = hashlib.md5(df.reset_index(drop=True).to_json().encode()).hexdigest()
-    return (df_hash, rpn_min, sev9_only, tuple(sorted(process_steps)), export_type)
-
-
-def render_export_buttons(
-    df: pd.DataFrame,
-    pareto_fig,
-    heatmap_fig,
-    rpn_min: int,
-    sev9_only: bool,
-    process_steps: list,
-) -> None:
-    st.subheader("📥  Export Report")
-
-    col_xl, col_pdf, col_csv, _ = st.columns([1, 1, 1, 3])
-
-    # --- Excel (lazy, cached by filtered-data hash + filter state) ---
-    xl_key = _export_cache_key(df, rpn_min, sev9_only, process_steps, "excel")
-    if st.session_state.get("_xl_cache_key") != xl_key:
-        try:
-            st.session_state["_xl_bytes"] = export_excel(df)
-            st.session_state["_xl_cache_key"] = xl_key
-        except Exception as exc:
-            st.session_state["_xl_bytes"] = None
-            st.session_state["_xl_cache_key"] = xl_key
-            st.warning(f"Excel export unavailable: {exc}")
-
-    with col_xl:
-        xl_bytes = st.session_state.get("_xl_bytes")
-        st.download_button(
-            label="📊  Download Excel",
-            data=xl_bytes or b"",
-            file_name="fmea_analysis.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-            disabled=xl_bytes is None,
-            help="Color-coded 2-sheet workbook with metadata summary",
-        )
-
-    # --- PDF (lazy, cached by filtered-data hash + filter state) ---
-    pdf_key = _export_cache_key(df, rpn_min, sev9_only, process_steps, "pdf")
-    if st.session_state.get("_pdf_cache_key") != pdf_key:
-        try:
-            st.session_state["_pdf_bytes"] = export_pdf(df)
-            st.session_state["_pdf_cache_key"] = pdf_key
-        except Exception as exc:
-            st.session_state["_pdf_bytes"] = None
-            st.session_state["_pdf_cache_key"] = pdf_key
-            st.warning(f"PDF export unavailable: {exc}")
-
-    with col_pdf:
-        pdf_bytes = st.session_state.get("_pdf_bytes")
-        st.download_button(
-            label="📄  Download PDF",
-            data=pdf_bytes or b"",
-            file_name="fmea_report.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-            disabled=pdf_bytes is None,
-            help="3-page A4 landscape: table + Pareto + Heatmap",
-        )
-
-    # --- CSV (always fresh — cheap operation, no caching needed) ---
-    with col_csv:
-        st.download_button(
-            label="📋  Download CSV",
-            data=_sanitize_for_export(df).to_csv(index=False).encode("utf-8"),
-            file_name="fmea_analysis.csv",
-            mime="text/csv",
-            use_container_width=True,
-            help="Full analyzed dataset with all calculated columns",
-        )
-
-
-# ---------------------------------------------------------------------------
 # Landing page
 # ---------------------------------------------------------------------------
 
@@ -653,22 +522,10 @@ def main() -> None:
     )
 
     # --- Apply filters ---
-    df_filtered = _apply_filters(df_analyzed, rpn_min, sev9_only, process_steps)
+    df_filtered = apply_filters(df_analyzed, rpn_min, sev9_only, process_steps)
 
     # --- Build / cache charts ---
-    _df_hash = hashlib.md5(df_filtered.reset_index(drop=True).to_json().encode()).hexdigest()
-    _cache_key = (_df_hash, rpn_min, sev9_only, tuple(sorted(process_steps)), dark)
-    if st.session_state.get("_chart_cache_key") != _cache_key or "pareto_fig" not in st.session_state:
-        if not df_filtered.empty:
-            st.session_state["pareto_fig"]  = pareto_chart_plotly(df_filtered, dark=dark)
-            st.session_state["heatmap_fig"] = risk_heatmap_plotly(df_filtered, dark=dark)
-        else:
-            st.session_state["pareto_fig"]  = None
-            st.session_state["heatmap_fig"] = None
-        st.session_state["_chart_cache_key"] = _cache_key
-
-    pareto_fig  = st.session_state.get("pareto_fig")
-    heatmap_fig = st.session_state.get("heatmap_fig")
+    pareto_fig, heatmap_fig = get_or_build_charts(df_filtered, rpn_min, sev9_only, process_steps, dark)
 
     # --- Dashboard ---
     render_metric_badges(df_filtered)
