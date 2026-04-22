@@ -20,8 +20,8 @@ from datetime import datetime
 from typing import Any
 
 import openpyxl
-from openpyxl.styles import Alignment, Font, PatternFill
 import pandas as pd
+from openpyxl.styles import Alignment, Font, PatternFill
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -217,9 +217,11 @@ def export_pdf(df: pd.DataFrame) -> bytes:
     bytes
         Raw .pdf bytes suitable for st.download_button().
     """
-    from fpdf import FPDF
-    from src.visualizer import pareto_chart as mpl_pareto, risk_heatmap as mpl_heatmap
     import matplotlib.pyplot as plt
+    from fpdf import FPDF
+
+    from src.visualizer import pareto_chart as mpl_pareto
+    from src.visualizer import risk_heatmap as mpl_heatmap
 
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=12)
@@ -278,9 +280,12 @@ def _safe_text(s: object) -> str:
 
 def _flag_str(row: pd.Series) -> str:
     parts = []
-    if row.get("Flag_High_RPN"):          parts.append("High RPN")
-    if row.get("Flag_High_Severity"):     parts.append("Sev>=9")
-    if row.get("Flag_Action_Priority_H"): parts.append("AP-H")
+    if row.get("Flag_High_RPN"):
+        parts.append("High RPN")
+    if row.get("Flag_High_Severity"):
+        parts.append("Sev>=9")
+    if row.get("Flag_Action_Priority_H"):
+        parts.append("AP-H")
     return ", ".join(parts) if parts else "-"
 
 

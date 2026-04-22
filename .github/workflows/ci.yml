@@ -45,4 +45,7 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Lint with ruff
-        run: ruff check src/ tests/ app.py fmea_analyzer.py
+        run: ruff check src/ tests/ app.py fmea_analyzer.py ui/
+
+      - name: Type check with mypy
+        run: mypy src/ ui/ --ignore-missing-imports

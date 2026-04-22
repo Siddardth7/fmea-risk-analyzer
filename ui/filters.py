@@ -3,8 +3,9 @@ ui/filters.py
 Sidebar filter rendering and DataFrame filtering for the FMEA Risk Analyzer.
 """
 from __future__ import annotations
-import streamlit as st
+
 import pandas as pd
+import streamlit as st
 
 
 def render_rpn_slider() -> int:

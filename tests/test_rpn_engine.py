@@ -25,16 +25,17 @@ Run with:
 
 import numpy as np
 import pandas as pd
+import pydantic
 import pytest
 
 from src.rpn_engine import (
-    validate_input,
     calculate_rpn,
     flag_critical,
     rank_by_rpn,
     run_pipeline,
+    validate_input,
 )
-
+from src.schema import FMEADataset, FMEARow
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -100,14 +101,14 @@ def test_tc02_severity_9_triggers_flags():
     df = calculate_rpn(df)   # RPN = 9 × 2 × 2 = 36
     df = flag_critical(df)
 
-    assert df.loc[0, "Flag_High_Severity"] is True or df.loc[0, "Flag_High_Severity"] == True, (
+    assert df.loc[0, "Flag_High_Severity"], (
         "Flag_High_Severity should be True for Severity=9"
     )
-    assert df.loc[0, "Flag_Action_Priority_H"] is True or df.loc[0, "Flag_Action_Priority_H"] == True, (
+    assert df.loc[0, "Flag_Action_Priority_H"], (
         "Flag_Action_Priority_H should be True for Severity=9 (safety override)"
     )
     # RPN = 36 — below 100 threshold, so Flag_High_RPN must be False
-    assert df.loc[0, "Flag_High_RPN"] is False or df.loc[0, "Flag_High_RPN"] == False, (
+    assert not df.loc[0, "Flag_High_RPN"], (
         "Flag_High_RPN should be False when RPN=36 (< 100)"
     )
 
@@ -123,9 +124,9 @@ def test_tc03_low_severity_no_flags():
     df = calculate_rpn(df)    # RPN = 1
     df = flag_critical(df)
 
-    assert df.loc[0, "Flag_High_RPN"] == False, "Flag_High_RPN should be False (RPN=1)"
-    assert df.loc[0, "Flag_High_Severity"] == False, "Flag_High_Severity should be False (S=1)"
-    assert df.loc[0, "Flag_Action_Priority_H"] == False, "Flag_Action_Priority_H should be False (S=1, RPN=1)"
+    assert not df.loc[0, "Flag_High_RPN"], "Flag_High_RPN should be False (RPN=1)"
+    assert not df.loc[0, "Flag_High_Severity"], "Flag_High_Severity should be False (S=1)"
+    assert not df.loc[0, "Flag_Action_Priority_H"], "Flag_Action_Priority_H should be False (S=1, RPN=1)"
 
 
 # ---------------------------------------------------------------------------
@@ -153,14 +154,14 @@ def test_tc05_high_rpn_flag():
     validate_input(df_high)
     df_high = calculate_rpn(df_high)
     df_high = flag_critical(df_high)
-    assert df_high.loc[0, "Flag_High_RPN"] == True, "Flag_High_RPN should be True for RPN=125"
+    assert df_high.loc[0, "Flag_High_RPN"], "Flag_High_RPN should be True for RPN=125"
 
     # RPN = 4 × 5 × 5 = 100 → boundary: > 100 rule means exactly 100 should NOT flag
     df_boundary = _make_df(_make_row(severity=4, occurrence=5, detection=5))
     validate_input(df_boundary)
     df_boundary = calculate_rpn(df_boundary)
     df_boundary = flag_critical(df_boundary)
-    assert df_boundary.loc[0, "Flag_High_RPN"] == False, "Flag_High_RPN should be False for RPN=100 (rule is > 100)"
+    assert not df_boundary.loc[0, "Flag_High_RPN"], "Flag_High_RPN should be False for RPN=100 (rule is > 100)"
 
 
 # ---------------------------------------------------------------------------
@@ -175,10 +176,10 @@ def test_tc06_action_priority_h_high_rpn():
     df = calculate_rpn(df)    # RPN = 200
     df = flag_critical(df)
 
-    assert df.loc[0, "Flag_Action_Priority_H"] == True, (
+    assert df.loc[0, "Flag_Action_Priority_H"], (
         "Flag_Action_Priority_H should be True when RPN=200 (threshold is ≥ 200)"
     )
-    assert df.loc[0, "Flag_High_Severity"] == False, (
+    assert not df.loc[0, "Flag_High_Severity"], (
         "Flag_High_Severity should be False (Severity=8)"
     )
 
@@ -255,16 +256,16 @@ def test_tc09_run_pipeline_end_to_end():
 
     # Flags for ID=1
     row1 = result[result["ID"] == 1].iloc[0]
-    assert row1["Flag_High_RPN"] == True,         "ID=1 should have Flag_High_RPN=True"
-    assert row1["Flag_High_Severity"] == True,    "ID=1 should have Flag_High_Severity=True (S=9)"
-    assert row1["Flag_Action_Priority_H"] == True, "ID=1 should have Flag_Action_Priority_H=True"
-    assert row1["Risk_Tier"] == "Red",            "ID=1 should be Red tier"
+    assert row1["Flag_High_RPN"],          "ID=1 should have Flag_High_RPN=True"
+    assert row1["Flag_High_Severity"],     "ID=1 should have Flag_High_Severity=True (S=9)"
+    assert row1["Flag_Action_Priority_H"], "ID=1 should have Flag_Action_Priority_H=True"
+    assert row1["Risk_Tier"] == "Red",     "ID=1 should be Red tier"
 
     # All clear for ID=2
     row2 = result[result["ID"] == 2].iloc[0]
-    assert row2["Flag_High_RPN"] == False,         "ID=2 should have no flags"
-    assert row2["Flag_High_Severity"] == False,    "ID=2 should have no severity flag"
-    assert row2["Flag_Action_Priority_H"] == False, "ID=2 should have no action priority flag"
+    assert not row2["Flag_High_RPN"],          "ID=2 should have no flags"
+    assert not row2["Flag_High_Severity"],     "ID=2 should have no severity flag"
+    assert not row2["Flag_Action_Priority_H"], "ID=2 should have no action priority flag"
     assert row2["Risk_Tier"] == "Green",           "ID=2 should be Green tier"
 
 
@@ -458,9 +459,6 @@ def test_null_effect_rejected():
 # ---------------------------------------------------------------------------
 # Task 11: Pydantic v2 schema layer tests
 # ---------------------------------------------------------------------------
-
-from src.schema import FMEARow, FMEADataset
-import pydantic
 
 
 def test_fmea_row_valid():

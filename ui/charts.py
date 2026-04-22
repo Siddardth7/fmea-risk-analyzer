@@ -3,10 +3,12 @@ ui/charts.py
 Chart caching and rendering for the FMEA Risk Analyzer.
 """
 from __future__ import annotations
-import streamlit as st
+
 import pandas as pd
-from ui import df_content_hash
+import streamlit as st
+
 from src.plotly_charts import pareto_chart_plotly, risk_heatmap_plotly
+from ui import df_content_hash
 
 
 def get_or_build_charts(

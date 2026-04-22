@@ -5,6 +5,7 @@
 [![Plotly](https://img.shields.io/badge/Plotly-6.6-3F4F75?logo=plotly&logoColor=white)](https://plotly.com)
 [![Tests](https://img.shields.io/badge/Tests-78%20passing-brightgreen?logo=pytest)](https://github.com/Siddardth7/fmea-risk-analyzer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/Siddardth7/fmea-risk-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/Siddardth7/fmea-risk-analyzer/actions/workflows/ci.yml)
 
 **A portfolio-grade Python tool that automates Process FMEA risk analysis** — calculates RPN scores, applies AIAG FMEA-4 criticality flags, generates interactive Pareto and heatmap visualizations, and exports publication-ready PDF and Excel reports. Deployed as a live Streamlit web application.
 
