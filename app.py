@@ -15,9 +15,14 @@ from src.rpn_engine import (
     run_pipeline,
     validate_input,
 )
-from ui.filters import render_rpn_slider, render_severity_toggle, render_process_filter, apply_filters
 from ui.charts import get_or_build_charts
 from ui.exports import render_export_buttons
+from ui.filters import (
+    apply_filters,
+    render_process_filter,
+    render_rpn_slider,
+    render_severity_toggle,
+)
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -25,12 +30,13 @@ from ui.exports import render_export_buttons
 
 st.set_page_config(
     page_title="FMEA Risk Analyzer",
-    page_icon="🔍",
+    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-DEMO_CSV = Path(__file__).parent / "data" / "composite_panel_fmea_demo.csv"
+DEMO_CSV      = Path(__file__).parent / "data" / "composite_panel_fmea_demo.csv"
+TEMPLATE_CSV  = Path(__file__).parent / "data" / "fmea_input_template.csv"
 
 TIER_ROW_COLORS = {
     "Red":    "background-color: #fde8e8; color: #922b21;",
@@ -45,27 +51,61 @@ DARK_TIER_ROW_COLORS = {
 }
 
 # ---------------------------------------------------------------------------
-# CSS injection
+# CSS design system
 # ---------------------------------------------------------------------------
 
 _BASE_CSS = """
 <style>
+/* ── Global resets ───────────────────────────────────────────────── */
+.block-container { padding-top: 1.5rem !important; }
+
+/* ── Metric cards ────────────────────────────────────────────────── */
 div[data-testid="metric-container"] {
     border-radius: 10px;
     padding: 14px 18px;
-    border: 1px solid rgba(128,128,128,0.2);
-    transition: box-shadow 0.2s;
+    border: 1px solid rgba(128,128,128,0.15);
+    background: #ffffff;
+    transition: box-shadow 0.2s, transform 0.15s;
 }
 div[data-testid="metric-container"]:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+    transform: translateY(-1px);
 }
+
+/* ── Tabs ────────────────────────────────────────────────────────── */
 .stTabs [data-baseweb="tab"] {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
-    padding: 10px 20px;
+    padding: 10px 22px;
 }
 .stTabs [data-baseweb="tab-list"] {
     gap: 4px;
+    background: transparent;
+}
+
+/* ── Download buttons ────────────────────────────────────────────── */
+.stDownloadButton > button {
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: box-shadow 0.2s !important;
+}
+.stDownloadButton > button:hover {
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15) !important;
+}
+
+/* ── Expanders ───────────────────────────────────────────────────── */
+.streamlit-expanderHeader {
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+/* ── Sidebar refinements ─────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+    border-right: 1px solid rgba(128,128,128,0.12);
+}
+section[data-testid="stSidebar"] .stButton > button {
+    border-radius: 8px !important;
+    font-weight: 500 !important;
 }
 </style>
 """
@@ -85,7 +125,10 @@ div[data-testid="metric-container"] {
 }
 div[data-testid="stMetricLabel"] p { color: #8b949e !important; }
 div[data-testid="stMetricValue"] { color: #58a6ff !important; }
-.stTabs [data-baseweb="tab-list"] { background-color: #0e1117 !important; border-bottom: 1px solid #30363d !important; }
+.stTabs [data-baseweb="tab-list"] {
+    background-color: #0e1117 !important;
+    border-bottom: 1px solid #30363d !important;
+}
 .stTabs [data-baseweb="tab"] { color: #8b949e !important; }
 .stTabs [aria-selected="true"] { color: #58a6ff !important; border-bottom: 2px solid #58a6ff !important; }
 .streamlit-expanderHeader { background-color: #161b27 !important; color: #e6edf3 !important; }
@@ -148,8 +191,12 @@ def _style_table(df: pd.DataFrame, dark: bool) -> pd.io.formats.style.Styler:
 
 def render_sidebar():
     """Render sidebar controls. Returns (raw_df, rpn_min, sev9_only, dark)."""
-    st.sidebar.title("FMEA Risk Analyzer")
-    st.sidebar.markdown("Upload your FMEA file or load the demo dataset to begin.")
+    st.sidebar.markdown(
+        "<div style='padding:0.4rem 0 0.2rem; font-size:1.25rem; font-weight:700; "
+        "letter-spacing:-0.3px;'>🛡️ FMEA Risk Analyzer</div>",
+        unsafe_allow_html=True,
+    )
+    st.sidebar.caption("Process FMEA · AIAG FMEA-4 · AIAG/VDA 2019")
     st.sidebar.divider()
 
     dark = st.sidebar.toggle(
@@ -167,7 +214,7 @@ def render_sidebar():
         help=(
             "CSV or Excel with 11 columns: ID, Process_Step, Component, "
             "Function, Failure_Mode, Effect, Severity, Cause, "
-            "Occurrence, Current_Control, Detection"
+            "Occurrence, Current_Control, Detection  |  S/O/D must be integers 1–10"
         ),
     )
     use_demo = st.sidebar.button(
@@ -181,40 +228,76 @@ def render_sidebar():
     if uploaded:
         st.session_state["use_demo"] = False
 
-    raw_df = None
+    raw_df       = None
     source_label = None
+    source_ok    = False
 
     if uploaded and not st.session_state.get("use_demo"):
         try:
-            raw_df = _load_uploaded(uploaded)
-            source_label = f"📄  {uploaded.name}"
+            raw_df       = _load_uploaded(uploaded)
+            source_label = uploaded.name
+            source_ok    = True
         except Exception as exc:
             st.sidebar.error(f"Failed to load: {exc}")
     elif st.session_state.get("use_demo"):
-        raw_df = pd.read_csv(DEMO_CSV)
-        source_label = "📋  Demo: composite panel FMEA (30 rows)"
+        raw_df       = pd.read_csv(DEMO_CSV)
+        source_label = "Demo: composite panel FMEA (30 rows)"
+        source_ok    = True
 
     if source_label:
-        st.sidebar.caption(source_label)
+        dot   = "🟢" if source_ok else "🔴"
+        label = source_label[:42] + "…" if len(source_label) > 44 else source_label
+        st.sidebar.markdown(
+            f"<div style='font-size:0.82rem; padding:6px 10px; border-radius:6px; "
+            f"background:rgba(39,174,96,0.08); border:1px solid rgba(39,174,96,0.25); "
+            f"color:#1e7e45; margin-top:4px;'>"
+            f"{dot} <b>{label}</b></div>",
+            unsafe_allow_html=True,
+        )
 
     st.sidebar.divider()
     st.sidebar.subheader("🔧  Filters")
 
-    rpn_min = render_rpn_slider()
+    rpn_min  = render_rpn_slider()
     sev9_only = render_severity_toggle()
 
     return raw_df, rpn_min, sev9_only, dark
 
 
 # ---------------------------------------------------------------------------
-# Header
+# Hero header
 # ---------------------------------------------------------------------------
 
-def render_header():
-    st.title("🔍  FMEA Risk Prioritization Tool")
+def render_header(source_active: bool) -> None:
     st.markdown(
-        "Analyze failure modes, calculate **RPN scores**, apply **AIAG FMEA-4 criticality flags**, "
-        "and visualize risk concentration across your manufacturing process."
+        """
+        <div style="
+            background: linear-gradient(135deg, #1a2a4a 0%, #1d3461 55%, #152744 100%);
+            border-radius: 14px;
+            padding: 2rem 2.5rem 1.8rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        ">
+          <div style="position:relative; z-index:1;">
+            <div style="font-size:0.78rem; font-weight:600; letter-spacing:1.5px;
+                        color:#7ec8e3; text-transform:uppercase; margin-bottom:0.35rem;">
+              Process FMEA &nbsp;·&nbsp; AIAG FMEA-4 &nbsp;·&nbsp; AIAG/VDA 2019
+            </div>
+            <div style="font-size:2rem; font-weight:800; color:#ffffff;
+                        letter-spacing:-0.5px; line-height:1.15; margin-bottom:0.5rem;">
+              FMEA Risk Prioritization Tool
+            </div>
+            <div style="font-size:0.95rem; color:#b8cce4; max-width:620px; line-height:1.6;">
+              Calculate RPN scores, apply AIAG criticality flags, and visualize risk
+              concentration across manufacturing failure modes — ready to export.
+            </div>
+          </div>
+          <div style="position:absolute; right:2rem; top:50%; transform:translateY(-50%);
+                      font-size:5rem; opacity:0.07;">🛡️</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -231,14 +314,37 @@ def render_metric_badges(df: pd.DataFrame) -> None:
     high_sev = int(df["Flag_High_Severity"].sum())
     action_h = int(df["Flag_Action_Priority_H"].sum())
 
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-    c1.metric("Total Modes",       total)
-    c2.metric("🔴  Red",           red,      help="RPN > 100 OR Severity ≥ 9 — immediate action")
-    c3.metric("🟡  Yellow",        yellow,   help="RPN 50–100 — corrective action recommended")
-    c4.metric("🟢  Green",         green,    help="RPN < 50 — monitor")
-    c5.metric("High RPN (>100)",   high_rpn, help="Flag_High_RPN = True")
-    c6.metric("Severity ≥ 9",      high_sev, help="Safety-critical per AIAG FMEA-4")
-    c7.metric("Action Priority H", action_h, help="RPN ≥ 200 OR Severity ≥ 9")
+    # Render as custom HTML cards for tier-aware coloring
+    cards = [
+        ("Total Modes",       total,    "#1B4F8A", "#EBF2FB", "All failure modes in current view"),
+        ("🔴 Red",            red,      "#c0392b", "#FDEDEC", "RPN > 100 OR Severity ≥ 9 — immediate action"),
+        ("🟡 Yellow",         yellow,   "#d68910", "#FEF9E7", "RPN 50–100 — corrective action recommended"),
+        ("🟢 Green",          green,    "#1e8449", "#EAFAF1", "RPN < 50 — monitor"),
+        ("High RPN (>100)",   high_rpn, "#7d3c98", "#F5EEF8", "Flag_High_RPN = True"),
+        ("Severity ≥ 9",      high_sev, "#c0392b", "#FDEDEC", "Safety-critical per AIAG FMEA-4"),
+        ("Action Priority H", action_h, "#922b21", "#FDEDEC", "RPN ≥ 200 OR Severity ≥ 9"),
+    ]
+
+    html_parts = ["<div style='display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin:0.75rem 0 1rem;'>"]
+    for label, value, accent, bg, tip in cards:
+        html_parts.append(
+            f"""<div title="{tip}" style="
+                background:{bg};
+                border-radius:10px;
+                border:1px solid rgba(0,0,0,0.07);
+                border-left:4px solid {accent};
+                padding:12px 14px;
+                cursor:default;
+                transition:box-shadow 0.2s;
+            ">
+              <div style="font-size:0.72rem; font-weight:600; color:#666; text-transform:uppercase;
+                          letter-spacing:0.5px; margin-bottom:4px; white-space:nowrap; overflow:hidden;
+                          text-overflow:ellipsis;">{label}</div>
+              <div style="font-size:1.7rem; font-weight:800; color:{accent}; line-height:1.1;">{value}</div>
+            </div>"""
+        )
+    html_parts.append("</div>")
+    st.markdown("".join(html_parts), unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +372,7 @@ def render_insights(df: pd.DataFrame) -> None:
     if sev9_count:
         parts.append(f"**{sev9_count}** safety-critical failure mode(s) flagged (Severity ≥ 9).")
 
-    st.info("  \u00a0".join(parts))
+    st.info("   ".join(parts))
 
 
 # ---------------------------------------------------------------------------
@@ -310,8 +416,8 @@ def render_table(df: pd.DataFrame, dark: bool) -> None:
 
         st.divider()
         if total:
-            avg_rpn = df["RPN"].mean()
-            max_rpn = df["RPN"].max()
+            avg_rpn   = df["RPN"].mean()
+            max_rpn   = df["RPN"].max()
             total_rpn = df["RPN"].sum()
             st.markdown(f"**Avg RPN:** {avg_rpn:.0f}")
             st.markdown(f"**Max RPN:** {int(max_rpn)}")
@@ -357,7 +463,7 @@ def render_heatmap(heatmap_fig) -> None:
 # ---------------------------------------------------------------------------
 
 def render_critical_panel(df: pd.DataFrame) -> None:
-    critical = df[df["Flag_Action_Priority_H"] == True]  # noqa: E712
+    critical = df[df["Flag_Action_Priority_H"].astype(bool)]
 
     if critical.empty:
         st.success("✅  No critical failure modes under current filters.")
@@ -377,7 +483,6 @@ def render_critical_panel(df: pd.DataFrame) -> None:
     ]
     st.dataframe(critical[display_cols].reset_index(drop=True), use_container_width=True)
 
-    # Action guidance
     with st.expander("📌  What to do with these items"):
         st.markdown("""
 **AIAG FMEA-4 Corrective Action Process:**
@@ -395,48 +500,121 @@ def render_critical_panel(df: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 
 def render_landing() -> None:
-    st.info("👈  Upload a CSV/Excel file or click **Use Demo Dataset** in the sidebar to begin.")
+    st.markdown(
+        """
+        <div style="
+            background: linear-gradient(135deg, #EBF5FB 0%, #F5EEF8 100%);
+            border: 1px solid rgba(27,79,138,0.15);
+            border-radius: 14px;
+            padding: 1.75rem 2rem;
+            margin-bottom: 1.5rem;
+        ">
+          <div style="font-size:1.05rem; color:#1a2a3a; font-weight:500;">
+            👈 &nbsp;Upload a CSV/Excel file or click <strong>Use Demo Dataset</strong>
+            in the sidebar to begin.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    col1, col2 = st.columns(2)
+    # ── 3-step workflow ──────────────────────────────────────────────────
+    st.markdown("#### How it works")
+    c1, c2, c3 = st.columns(3)
 
-    with col1:
-        with st.expander("📐  Required CSV/Excel schema"):
+    _card_style = (
+        "background:#ffffff; border-radius:12px; padding:1.4rem 1.5rem; "
+        "border:1px solid #e2e8f0; height:100%; box-shadow:0 1px 4px rgba(0,0,0,0.06);"
+    )
+
+    with c1:
+        st.markdown(
+            f"<div style='{_card_style}'>"
+            "<div style='font-size:1.7rem; margin-bottom:0.5rem;'>📂</div>"
+            "<div style='font-weight:700; font-size:1rem; color:#1a2a3a; margin-bottom:0.4rem;'>"
+            "1 · Upload your FMEA</div>"
+            "<div style='font-size:0.88rem; color:#5a6a7a; line-height:1.55;'>"
+            "Upload a CSV or Excel file with 11 columns, or try the 30-row composite panel "
+            "aerospace demo dataset.</div></div>",
+            unsafe_allow_html=True,
+        )
+
+    with c2:
+        st.markdown(
+            f"<div style='{_card_style}'>"
+            "<div style='font-size:1.7rem; margin-bottom:0.5rem;'>⚙️</div>"
+            "<div style='font-weight:700; font-size:1rem; color:#1a2a3a; margin-bottom:0.4rem;'>"
+            "2 · Automated analysis</div>"
+            "<div style='font-size:0.88rem; color:#5a6a7a; line-height:1.55;'>"
+            "RPN = S × O × D is calculated, Risk Tiers assigned, and AIAG FMEA-4 criticality "
+            "flags applied automatically.</div></div>",
+            unsafe_allow_html=True,
+        )
+
+    with c3:
+        st.markdown(
+            f"<div style='{_card_style}'>"
+            "<div style='font-size:1.7rem; margin-bottom:0.5rem;'>📊</div>"
+            "<div style='font-weight:700; font-size:1rem; color:#1a2a3a; margin-bottom:0.4rem;'>"
+            "3 · Visualize & export</div>"
+            "<div style='font-size:0.88rem; color:#5a6a7a; line-height:1.55;'>"
+            "Interactive Pareto chart, Severity × Occurrence heatmap, and one-click export "
+            "to PDF, Excel, or CSV.</div></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
+
+    # ── Schema + template ────────────────────────────────────────────────
+    col_schema, col_template = st.columns([3, 2])
+
+    with col_schema:
+        with st.expander("📐  Required CSV/Excel schema", expanded=True):
             st.markdown("""
-| Column | Type | Description |
+| Column | Type | Constraint |
 |---|---|---|
 | `ID` | int | Unique row identifier |
-| `Process_Step` | str | Manufacturing process step name |
+| `Process_Step` | str | Manufacturing process step |
 | `Component` | str | Part or sub-assembly |
 | `Function` | str | Intended function |
 | `Failure_Mode` | str | How it can fail |
-| `Effect` | str | Consequence of the failure |
-| `Severity` | int (1–10) | Severity of effect (AIAG scale) |
+| `Effect` | str | Consequence of failure |
+| `Severity` | int | 1–10 (AIAG scale) |
 | `Cause` | str | Root cause |
-| `Occurrence` | int (1–10) | Likelihood of occurrence |
+| `Occurrence` | int | 1–10 (AIAG scale) |
 | `Current_Control` | str | Existing controls |
-| `Detection` | int (1–10) | Ability to detect |
+| `Detection` | int | 1–10 (AIAG scale) |
 
 **RPN = Severity × Occurrence × Detection** (range 1–1000)
 """)
 
-    with col2:
-        with st.expander("📖  How RPN and Risk Tiers work"):
+    with col_template:
+        with st.expander("📥  Download starter template", expanded=True):
+            st.markdown(
+                "Download a pre-formatted CSV with correct column headers and one example row. "
+                "Fill it in and upload to the sidebar."
+            )
+            if TEMPLATE_CSV.exists():
+                st.download_button(
+                    label="⬇️  Download fmea_input_template.csv",
+                    data=TEMPLATE_CSV.read_bytes(),
+                    file_name="fmea_input_template.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Pre-formatted template with correct column headers",
+                )
+            else:
+                st.caption("Template file not found.")
+
+        with st.expander("📖  Risk tier thresholds"):
             st.markdown("""
-**Risk Priority Number (RPN)** is the core metric of Process FMEA:
-
-`RPN = Severity × Occurrence × Detection`
-
-Each factor is scored 1–10 per AIAG FMEA-4:
-- **Severity:** How bad is the effect? (10 = safety failure without warning)
-- **Occurrence:** How likely is the cause? (10 = almost certain)
-- **Detection:** How well do controls catch it? (10 = no detection possible)
-
-**Risk Tiers:**
 | Tier | Condition | Action Required |
 |---|---|---|
 | 🔴 Red | RPN > 100 OR Severity ≥ 9 | Immediate corrective action |
 | 🟡 Yellow | RPN 50–100 | Action recommended |
 | 🟢 Green | RPN < 50 | Monitor |
+
+**Action Priority H** is flagged when RPN ≥ 200 OR Severity ≥ 9.
 """)
 
 
@@ -465,9 +643,9 @@ def render_validation_summary(df: pd.DataFrame) -> None:
 
     with st.expander("📋  Dataset Health", expanded=True):
         c1, c2, c3 = st.columns(3)
-        c1.metric("Rows loaded",      len(df))
-        c2.metric("Columns present",  len(df.columns))
-        c3.metric("Warnings",         len(warnings))
+        c1.metric("Rows loaded",     len(df))
+        c2.metric("Columns present", len(df.columns))
+        c3.metric("Warnings",        len(warnings))
         if warnings:
             for w in warnings:
                 st.caption(f"⚠️ {w}")
@@ -483,7 +661,7 @@ def main() -> None:
     raw_df, rpn_min, sev9_only, dark = render_sidebar()
 
     _inject_css(dark)
-    render_header()
+    render_header(source_active=raw_df is not None)
 
     if raw_df is None:
         st.sidebar.divider()
@@ -494,14 +672,14 @@ def main() -> None:
         render_landing()
         return
 
-    # --- Validate ---
+    # ── Validate ─────────────────────────────────────────────────────────
     try:
         validate_input(raw_df)
     except ValueError as exc:
         st.error(f"**Input validation failed:** {exc}")
         st.stop()
 
-    # --- Pipeline ---
+    # ── Pipeline ──────────────────────────────────────────────────────────
     try:
         df_analyzed = run_pipeline(raw_df)
         st.session_state["_dataset_rpn_max"] = int(df_analyzed["RPN"].max())
@@ -511,7 +689,7 @@ def main() -> None:
 
     render_validation_summary(df_analyzed)
 
-    # --- Process step filter (sidebar, needs data first) ---
+    # ── Process step filter (sidebar, needs data first) ───────────────────
     process_steps = render_process_filter(df_analyzed)
 
     # Sidebar footer
@@ -521,13 +699,15 @@ def main() -> None:
         "AIAG/VDA FMEA Handbook (5th Ed., 2019)"
     )
 
-    # --- Apply filters ---
+    # ── Apply filters ─────────────────────────────────────────────────────
     df_filtered = apply_filters(df_analyzed, rpn_min, sev9_only, process_steps)
 
-    # --- Build / cache charts ---
-    pareto_fig, heatmap_fig = get_or_build_charts(df_filtered, rpn_min, sev9_only, process_steps, dark)
+    # ── Build / cache charts ──────────────────────────────────────────────
+    pareto_fig, heatmap_fig = get_or_build_charts(
+        df_filtered, rpn_min, sev9_only, process_steps, dark
+    )
 
-    # --- Dashboard ---
+    # ── Dashboard ─────────────────────────────────────────────────────────
     render_metric_badges(df_filtered)
     render_insights(df_filtered)
     st.divider()

@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.56-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Plotly](https://img.shields.io/badge/Plotly-6.6-3F4F75?logo=plotly&logoColor=white)](https://plotly.com)
-[![Tests](https://img.shields.io/badge/Tests-78%20passing-brightgreen?logo=pytest)](https://github.com/Siddardth7/fmea-risk-analyzer)
+[![Tests](https://img.shields.io/badge/Tests-98%20passing-brightgreen?logo=pytest)](https://github.com/Siddardth7/fmea-risk-analyzer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/Siddardth7/fmea-risk-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/Siddardth7/fmea-risk-analyzer/actions/workflows/ci.yml)
 
