@@ -17,7 +17,8 @@ Author: Siddardth | M.S. Aerospace Engineering, UIUC
 import numpy as np
 import pandas as pd
 import pydantic as _pydantic
-from src.schema import FMEARow, FMEADataset
+
+from src.schema import FMEADataset, FMEARow
 
 # ---------------------------------------------------------------------------
 # Constants — all thresholds sourced from ASSUMPTIONS_LOG.md

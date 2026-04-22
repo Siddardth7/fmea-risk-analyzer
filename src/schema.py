@@ -4,7 +4,9 @@ Pydantic v2 domain models for FMEA data validation.
 Single source of truth for field types, constraints, and dataset-level rules.
 """
 from __future__ import annotations
+
 from typing import Annotated
+
 import pydantic
 
 

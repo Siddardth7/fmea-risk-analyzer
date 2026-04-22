@@ -11,15 +11,15 @@ Run:
     pytest tests/test_visualizer.py -v
 """
 
+import matplotlib
 import pandas as pd
 import pytest
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src.rpn_engine import run_pipeline
 from src.visualizer import pareto_chart, risk_heatmap
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

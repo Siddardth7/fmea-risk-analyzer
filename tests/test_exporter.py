@@ -5,9 +5,9 @@ Tests for src/exporter.py — Excel and PDF export functions.
 
 import io
 
+import openpyxl
 import pandas as pd
 import pytest
-import openpyxl
 
 from src.exporter import export_excel, export_pdf
 
@@ -114,8 +114,9 @@ class TestExportPdf:
 
 def _pipeline_df_with_formula():
     """DataFrame with formula-injection strings in text fields."""
-    from src.rpn_engine import run_pipeline
     import pandas as pd
+
+    from src.rpn_engine import run_pipeline
     df = pd.DataFrame([{
         "ID": 1, "Process_Step": "=SUM(1,2)",
         "Component": "+malicious", "Function": "Structural support",

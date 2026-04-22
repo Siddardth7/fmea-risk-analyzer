@@ -59,8 +59,9 @@ def test_null_process_step_rejected_at_boundary():
 def test_formula_prefixed_strings_not_stored_as_formulas():
     """Formula-injection strings are escaped in Excel export."""
     import openpyxl
-    from src.rpn_engine import run_pipeline
+
     from src.exporter import export_excel
+    from src.rpn_engine import run_pipeline
     df = pd.DataFrame([{
         "ID": 1, "Process_Step": "Stamping", "Component": "Panel",
         "Function": "Structural support", "Failure_Mode": "=2+2",
