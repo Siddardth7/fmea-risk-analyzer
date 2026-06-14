@@ -1,5 +1,10 @@
 # FMEA Risk Prioritization Tool
 
+> **📦 ARCHIVED — moved to the [quality-platform](https://github.com/Siddardth7/quality-platform) monorepo.**
+> This app now lives at [`apps/fmea/`](https://github.com/Siddardth7/quality-platform/tree/main/apps/fmea)
+> with its full commit history preserved. This repo is kept for historical reference only;
+> active development continues in the monorepo.
+
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.56-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Plotly](https://img.shields.io/badge/Plotly-6.6-3F4F75?logo=plotly&logoColor=white)](https://plotly.com)
